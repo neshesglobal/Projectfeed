@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Projectfeed",
+    "slug": "projectfeed",
+    "scheme": "projectfeed",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#000000",
+    "ios": {
+      "bundleIdentifier": "com.neshesglobal.projectfeed",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Projectfeed needs access to your photos so you can attach images to posts and messages.",
+        "NSCameraUsageDescription": "Projectfeed needs camera access so you can take photos for posts."
+      }
+    },
+    "android": {
+      "package": "com.neshesglobal.projectfeed",
+      "edgeToEdgeEnabled": true
+    },
+    "web": { "bundler": "metro", "output": "single" },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-image",
+      ["expo-image-picker", { "photosPermission": "Projectfeed needs access to your photos so you can attach images to posts and messages." }]
+    ],
+    "experiments": { "typedRoutes": false },
+    "extra": { "apiUrl": "http://localhost:4000" }
+  }
+}

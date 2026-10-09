@@ -1,5 +1,7 @@
 # Projectfeed — Core Development Plan (v1, no AI)
 
+> **Build status (9 Oct 2026):** core modules M1, M3–M5, M7–M12, M14, M15 and the reporting part of M13 are built (see `README.md`). KYC (M2) is deferred at the founder's request; the `kyc_level` field, badge and `KYC_ENFORCED` gate are in place so the vendor flow can be added later without a refactor. **Deviations from §3, chosen for MVP speed:** REST on Fastify instead of NestJS/GraphQL; timelines read from Postgres instead of Redis fan-out (move to Redis at roughly 10k DAU); DMs poll instead of WebSocket; images only (video via Mux next); local disk storage behind an S3-ready interface.
+
 Prepared 9 October 2026. This document builds on `docs/PLAN.md` and supersedes its phasing for core features.
 
 **Scope:** every core (non-AI) function of an X-class app on iOS and Android, with **mandatory KYC and ID verification for every user**. The AI features (explain/summarise, AI moderation triage, ML ranking) are deferred. The architecture leaves a defined place for each of them (see §12).

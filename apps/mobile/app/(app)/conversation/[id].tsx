@@ -1,0 +1,234 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { formatRelativeTime, type Conversation, type Message } from "@projectfeed/shared";
+import { api, errorMessage } from "../../../src/api/client";
+import { uploadImage, useMessages } from "../../../src/api/hooks";
+import { QuotedPost, openReport } from "../../../src/components/PostCard";
+import { useSheet } from "../../../src/components/Sheet";
+import { toast } from "../../../src/components/Toast";
+import { Avatar, Button, Header, IconButton, Loading, Screen, Text } from "../../../src/components/ui";
+import { conversationTitle } from "../../../src/lib/format";
+import { useAuth } from "../../../src/store/auth";
+import { radius, space, useTheme } from "../../../src/theme";
+
+function Bubble({ m, mine, onLongPress }: { m: Message; mine: boolean; onLongPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onLongPress={onLongPress} delayLongPress={300} style={{ alignItems: mine ? "flex-end" : "flex-start", paddingHorizontal: space.lg, marginVertical: 3 }}>
+      <View style={{ maxWidth: "80%", gap: 4 }}>
+        {m.media.map((med) => (
+          <Image key={med.id} source={{ uri: med.thumbUrl }} style={{ width: 220, height: 220 * (med.height / Math.max(med.width, 1)), borderRadius: radius.lg }} contentFit="cover" />
+        ))}
+        {m.sharedPost ? <QuotedPost post={m.sharedPost} /> : null}
+        {m.deleted ? (
+          <View style={{ borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, paddingHorizontal: space.md, paddingVertical: space.sm }}>
+            <Text muted size="sm">
+              This message was deleted
+            </Text>
+          </View>
+        ) : m.text ? (
+          <View
+            style={{
+              backgroundColor: mine ? t.accent : t.bgInput,
+              borderRadius: radius.lg,
+              borderBottomRightRadius: mine ? 4 : radius.lg,
+              borderBottomLeftRadius: mine ? radius.lg : 4,
+              paddingHorizontal: space.md,
+              paddingVertical: space.sm,
+            }}
+          >
+            <Text style={{ color: mine ? t.accentText : t.text }}>{m.text}</Text>
+          </View>
+        ) : null}
+        <Text muted size="xs" style={{ alignSelf: mine ? "flex-end" : "flex-start" }}>
+          {formatRelativeTime(m.createdAt)}
+          {m.editedAt ? " · Edited" : ""}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+export default function ConversationScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const t = useTheme();
+  const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
+  const me = useAuth((s) => s.user);
+  const openSheet = useSheet((s) => s.open);
+  const conv = useQuery({ queryKey: ["conversation", id], queryFn: () => api<Conversation>(`/conversations/${id}`) });
+  const messages = useMessages(id);
+  const [text, setText] = useState("");
+  const [editing, setEditing] = useState<Message | null>(null);
+
+  // Poll for new messages while the chat is open (WebSocket delivery replaces this later).
+  useEffect(() => {
+    const h = setInterval(() => void messages.refetch(), 5000);
+    return () => clearInterval(h);
+  }, [messages]);
+
+  const latestId = messages.data?.pages[0]?.items[0]?.id;
+  useEffect(() => {
+    if (!latestId) return;
+    void api(`/conversations/${id}/read`, { method: "POST" }).then(() => {
+      void qc.invalidateQueries({ queryKey: ["unread"] });
+      void qc.invalidateQueries({ queryKey: ["conversations"] });
+    });
+  }, [latestId, id, qc]);
+
+  const send = useMutation({
+    mutationFn: async (input: { text: string; imageUri?: string; mimeType?: string }) => {
+      const mediaIds = input.imageUri ? [(await uploadImage(input.imageUri, input.mimeType)).id] : [];
+      return api<Message>(`/conversations/${id}/messages`, { method: "POST", body: { text: input.text, mediaIds } });
+    },
+    onSuccess: () => {
+      void messages.refetch();
+      void qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (e) => toast(errorMessage(e)),
+  });
+
+  const submit = async () => {
+    const body = text.trim();
+    if (!body) return;
+    if (editing) {
+      try {
+        await api(`/messages/${editing.id}`, { method: "PATCH", body: { text: body } });
+        setEditing(null);
+        setText("");
+        void messages.refetch();
+      } catch (e) {
+        toast(errorMessage(e));
+      }
+      return;
+    }
+    setText("");
+    send.mutate({ text: body });
+  };
+
+  const attach = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.9 });
+    if (!res.canceled && res.assets[0]) send.mutate({ text: "", imageUri: res.assets[0].uri, mimeType: res.assets[0].mimeType ?? undefined });
+  };
+
+  const messageMenu = (m: Message) => {
+    if (m.deleted) return;
+    const mine = m.sender.id === me?.id;
+    const opts = [];
+    if (mine && Date.now() - new Date(m.createdAt).getTime() < 15 * 60_000 && m.text) {
+      opts.push({ label: "Edit", icon: "pencil" as const, onPress: () => { setEditing(m); setText(m.text); } });
+    }
+    if (mine) {
+      opts.push({
+        label: "Delete for everyone",
+        icon: "trash-outline" as const,
+        destructive: true,
+        onPress: async () => {
+          await api(`/messages/${m.id}`, { method: "DELETE" });
+          void messages.refetch();
+        },
+      });
+    } else {
+      opts.push({ label: "Report message", icon: "flag-outline" as const, destructive: true, onPress: () => openReport("message", m.id) });
+    }
+    openSheet(opts);
+  };
+
+  const all = messages.data?.pages.flatMap((p) => p.items) ?? [];
+  const c = conv.data;
+  const other = c?.participants[0];
+
+  return (
+    <Screen>
+      <Header
+        title={c ? conversationTitle(c) : ""}
+        subtitle={c && !c.isGroup && other ? `@${other.handle}` : c ? `${c.participants.length + 1} people` : undefined}
+        right={
+          other && !c?.isGroup ? (
+            <Pressable onPress={() => router.push(`/user/${other.handle}`)}>
+              <Avatar user={other} size={32} />
+            </Pressable>
+          ) : (
+            <IconButton
+              name="exit-outline"
+              label="Leave conversation"
+              onPress={async () => {
+                await api(`/conversations/${id}`, { method: "DELETE" });
+                void qc.invalidateQueries({ queryKey: ["conversations"] });
+                router.back();
+              }}
+            />
+          )
+        }
+      />
+      {c?.isRequest ? (
+        <View style={{ padding: space.lg, gap: space.sm, borderBottomWidth: 1, borderBottomColor: t.border }}>
+          <Text>
+            {other ? `@${other.handle}` : "Someone"} wants to message you. They won't know you've seen it until you accept.
+          </Text>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <Button
+              title="Accept"
+              small
+              onPress={async () => {
+                await api(`/conversations/${id}/accept`, { method: "POST" });
+                void conv.refetch();
+                void qc.invalidateQueries({ queryKey: ["conversations"] });
+              }}
+            />
+            <Button
+              title="Delete"
+              small
+              variant="danger"
+              onPress={async () => {
+                await api(`/conversations/${id}`, { method: "DELETE" });
+                void qc.invalidateQueries({ queryKey: ["conversations"] });
+                router.back();
+              }}
+            />
+            {other ? <Button title="Report" small variant="outline" onPress={() => openReport("user", other.id)} /> : null}
+          </View>
+        </View>
+      ) : null}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <FlatList
+          data={all}
+          inverted
+          keyExtractor={(m) => m.id}
+          renderItem={({ item }) => <Bubble m={item} mine={item.sender.id === me?.id} onLongPress={() => messageMenu(item)} />}
+          onEndReached={() => messages.hasNextPage && !messages.isFetchingNextPage && void messages.fetchNextPage()}
+          ListFooterComponent={messages.isLoading || messages.isFetchingNextPage ? <Loading /> : null}
+          contentContainerStyle={{ paddingVertical: space.md }}
+        />
+        {editing ? (
+          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.sm, gap: space.sm }}>
+            <Ionicons name="pencil" size={14} color={t.accent} />
+            <Text size="sm" style={{ flex: 1, color: t.accent }}>
+              Editing message
+            </Text>
+            <IconButton name="close" label="Cancel edit" size={16} onPress={() => { setEditing(null); setText(""); }} />
+          </View>
+        ) : null}
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, padding: space.sm, paddingBottom: insets.bottom + space.sm, borderTopWidth: 1, borderTopColor: t.border }}>
+          <IconButton name="image-outline" label="Attach photo" color={t.accent} onPress={() => void attach()} />
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Start a message"
+            placeholderTextColor={t.textMuted}
+            multiline
+            accessibilityLabel="Message"
+            style={{ flex: 1, backgroundColor: t.bgInput, borderRadius: radius.lg, paddingHorizontal: space.md, paddingVertical: space.sm, color: t.text, maxHeight: 120, fontSize: 15 }}
+          />
+          <IconButton name="send" label="Send" color={text.trim() ? t.accent : t.textMuted} onPress={() => void submit()} disabled={!text.trim() || send.isPending} />
+        </View>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+}
