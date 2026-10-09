@@ -1,0 +1,158 @@
+import { z } from "zod";
+import { MAX_POST_LENGTH, weightedLength } from "./text";
+
+export const handleSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_]{3,15}$/, "Handle must be 3–15 letters, numbers or underscores");
+
+export const passwordSchema = z.string().min(10, "Password must be at least 10 characters").max(200);
+
+export const registerSchema = z.object({
+  email: z.email().max(254),
+  password: passwordSchema,
+  handle: handleSchema,
+  displayName: z.string().trim().min(1).max(50),
+});
+export type RegisterInput = z.infer<typeof registerSchema>;
+
+export const loginSchema = z.object({
+  identifier: z.string().min(1).max(254), // email or handle
+  password: z.string().min(1).max(200),
+});
+export type LoginInput = z.infer<typeof loginSchema>;
+
+export const refreshSchema = z.object({ refreshToken: z.string().min(10) });
+
+export const SECTORS = [
+  "Petroleum",
+  "Gas & LNG",
+  "Gold & Precious Metals",
+  "Base Metals",
+  "Agriculture",
+  "Fertilisers",
+  "Shipping & Freight",
+  "Trade Finance",
+  "Other",
+] as const;
+
+export const updateProfileSchema = z.object({
+  displayName: z.string().trim().min(1).max(50).optional(),
+  bio: z.string().max(160).optional(),
+  location: z.string().max(30).optional(),
+  website: z.union([z.url().max(100), z.literal("")]).optional(),
+  company: z.string().max(60).optional(),
+  role: z.string().max(60).optional(),
+  sectors: z.array(z.enum(SECTORS)).max(5).optional(),
+  avatarMediaId: z.string().nullable().optional(),
+  bannerMediaId: z.string().nullable().optional(),
+  isProtected: z.boolean().optional(),
+});
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+export const REPLY_AUDIENCES = ["everyone", "following", "mentioned"] as const;
+export type ReplyAudience = (typeof REPLY_AUDIENCES)[number];
+
+export const createPostSchema = z
+  .object({
+    text: z.string().max(4000).default(""),
+    replyToId: z.string().optional(),
+    quoteOfId: z.string().optional(),
+    mediaIds: z.array(z.string()).max(4).default([]),
+    replyAudience: z.enum(REPLY_AUDIENCES).default("everyone"),
+    poll: z
+      .object({
+        options: z.array(z.string().trim().min(1).max(25)).min(2).max(4),
+        durationMinutes: z.number().int().min(5).max(7 * 24 * 60),
+      })
+      .optional(),
+  })
+  .refine((p) => p.text.trim().length > 0 || p.mediaIds.length > 0 || p.quoteOfId, {
+    message: "Post cannot be empty",
+  })
+  .refine((p) => weightedLength(p.text) <= MAX_POST_LENGTH, {
+    message: `Post exceeds ${MAX_POST_LENGTH} characters`,
+  })
+  .refine((p) => !(p.poll && p.mediaIds.length > 0), {
+    message: "A post cannot have both a poll and media",
+  });
+export type CreatePostInput = z.input<typeof createPostSchema>;
+
+export const editPostSchema = z.object({
+  text: z
+    .string()
+    .max(4000)
+    .refine((t) => weightedLength(t) <= MAX_POST_LENGTH, `Post exceeds ${MAX_POST_LENGTH} characters`),
+});
+
+export const pollVoteSchema = z.object({ optionIndex: z.number().int().min(0).max(3) });
+
+export const REPORT_REASONS = [
+  "spam",
+  "scam_fraud",
+  "harassment",
+  "hate",
+  "violence",
+  "impersonation",
+  "child_safety",
+  "terrorism",
+  "self_harm",
+  "illegal_goods",
+  "other",
+] as const;
+
+export const reportSchema = z.object({
+  targetType: z.enum(["post", "user", "message"]),
+  targetId: z.string(),
+  reason: z.enum(REPORT_REASONS),
+  details: z.string().max(1000).optional(),
+});
+
+export const sendMessageSchema = z
+  .object({
+    text: z.string().max(10_000).default(""),
+    mediaIds: z.array(z.string()).max(4).default([]),
+    sharedPostId: z.string().optional(),
+  })
+  .refine((m) => m.text.trim().length > 0 || m.mediaIds.length > 0 || m.sharedPostId, {
+    message: "Message cannot be empty",
+  });
+
+export const createConversationSchema = z.object({
+  participantIds: z.array(z.string()).min(1).max(49),
+  title: z.string().max(50).optional(),
+});
+
+export const createListSchema = z.object({
+  name: z.string().trim().min(1).max(25),
+  description: z.string().max(100).optional(),
+  isPrivate: z.boolean().default(false),
+});
+
+export const mutedWordSchema = z.object({ word: z.string().trim().min(1).max(100) });
+
+export const EVENT_TYPES = [
+  "impression",
+  "dwell",
+  "click_post",
+  "click_profile",
+  "click_link",
+  "media_expand",
+  "video_view",
+  "share",
+  "not_interested",
+] as const;
+
+export const eventsSchema = z.object({
+  events: z
+    .array(
+      z.object({
+        type: z.enum(EVENT_TYPES),
+        postId: z.string().optional(),
+        surface: z.string().max(30),
+        position: z.number().int().min(0).optional(),
+        durationMs: z.number().int().min(0).max(3_600_000).optional(),
+        ts: z.string(),
+      }),
+    )
+    .max(200),
+});
