@@ -11,10 +11,11 @@ import {
 } from "@projectfeed/shared";
 import type { Db } from "../db";
 import { requireUser } from "../lib/auth";
-import { badRequest, forbidden, notFound, parse } from "../lib/errors";
+import { badRequest, conflict, forbidden, notFound, parse } from "../lib/errors";
 import { isId, newId } from "../lib/ids";
 import { hydratePosts, orderedSummaries, visiblePosts, type HydrateCtx } from "../services/hydrate";
 import { notify, unnotify } from "../services/notify";
+import { recordVideoViews } from "../feed/reels";
 import { idCursor, pageSize } from "../services/timeline";
 
 const EDIT_WINDOW_MS = 30 * 60 * 1000;
@@ -67,17 +68,22 @@ const postRoutes: FastifyPluginAsync = async (app) => {
 
     const id = newId();
     await sql.begin(async (tx) => {
+      let hasVideo = false;
       if (input.mediaIds.length > 0) {
-        const owned = await tx<{ id: string }[]>`
-          SELECT m.id FROM media m
+        const owned = await tx<{ id: string; type: string; status: string }[]>`
+          SELECT m.id, m.type, m.status FROM media m
           WHERE m.id = ANY(${input.mediaIds}::bigint[]) AND m.owner_id = ${me.id}
             AND NOT EXISTS (SELECT 1 FROM post_media pm WHERE pm.media_id = m.id)`;
         if (owned.length !== new Set(input.mediaIds).size) throw badRequest("Invalid or already-used media");
+        if (owned.some((m) => m.status === "processing")) throw conflict("Your video is still processing", "MEDIA_PROCESSING");
+        if (owned.some((m) => m.status === "failed")) throw badRequest("One of your attachments failed to process");
+        hasVideo = owned.some((m) => m.type === "video");
+        if (hasVideo && owned.length > 1) throw badRequest("A post can have one video, or up to 4 photos");
       }
       await tx`
-        INSERT INTO posts (id, author_id, text, reply_to_id, reply_to_author_id, quote_of_id, conversation_id, reply_audience)
+        INSERT INTO posts (id, author_id, text, reply_to_id, reply_to_author_id, quote_of_id, conversation_id, reply_audience, has_video)
         VALUES (${id}, ${me.id}, ${input.text}, ${parent?.id ?? null}, ${parent?.author.id ?? null},
-                ${input.quoteOfId ?? null}, ${parent?.conversationId ?? id}, ${input.replyAudience})`;
+                ${input.quoteOfId ?? null}, ${parent?.conversationId ?? id}, ${input.replyAudience}, ${hasVideo})`;
       for (const [i, mid] of input.mediaIds.entries()) {
         await tx`INSERT INTO post_media (post_id, media_id, position) VALUES (${id}, ${mid}, ${i})`;
       }
@@ -361,8 +367,14 @@ const postRoutes: FastifyPluginAsync = async (app) => {
         client_ts: Number.isNaN(Date.parse(e.ts)) ? new Date() : new Date(e.ts),
       }));
     if (rows.length > 0) await sql`INSERT INTO events ${sql(rows)}`;
-    // Impressions double as view counts (one per user per post).
-    const viewed = [...new Set(events.filter((e) => e.type === "impression" && e.postId && isId(e.postId)).map((e) => e.postId!))];
+    const videoViews = events
+      .filter((e) => e.type === "video_view" && e.postId && isId(e.postId) && (e.durationMs ?? 0) > 0)
+      .map((e) => ({ postId: e.postId!, durationMs: e.durationMs! }));
+    if (videoViews.length > 0) await recordVideoViews(sql, videoViews);
+    // Impressions and video plays double as view counts (one per user per post).
+    const viewed = [
+      ...new Set(events.filter((e) => (e.type === "impression" || e.type === "video_view") && e.postId && isId(e.postId)).map((e) => e.postId!)),
+    ];
     if (viewed.length > 0) {
       await sql`
         WITH ins AS (

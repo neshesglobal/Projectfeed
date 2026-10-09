@@ -9,6 +9,7 @@ import type { Sql } from "./db";
 import { AppError } from "./lib/errors";
 import { TokenService, makeRequireVerified } from "./lib/auth";
 import { LocalStorage, type Storage } from "./lib/storage";
+import { VideoProcessor } from "./services/video";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
 import postRoutes from "./routes/posts";
@@ -26,6 +27,7 @@ export interface AppCtx {
   cfg: Config;
   storage: Storage;
   tokens: TokenService;
+  video: VideoProcessor;
   /** preHandler for every write endpoint (auth + future KYC gate). */
   requireVerified: preHandlerHookHandler;
 }
@@ -44,14 +46,17 @@ export async function buildApp(cfg: Config, sql: Sql, opts: { logger?: boolean }
   });
 
   fs.mkdirSync(cfg.uploadDir, { recursive: true });
+  const storage = new LocalStorage(cfg.uploadDir, cfg.publicBaseUrl);
   const ctx: AppCtx = {
     sql,
     cfg,
-    storage: new LocalStorage(cfg.uploadDir, cfg.publicBaseUrl),
+    storage,
     tokens: new TokenService(cfg),
+    video: new VideoProcessor(sql, storage),
     requireVerified: makeRequireVerified(cfg) as preHandlerHookHandler,
   };
   app.decorate("ctx", ctx);
+  await ctx.video.recover();
   app.decorateRequest("user", null);
 
   await app.register(cors, { origin: true });

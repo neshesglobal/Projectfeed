@@ -9,6 +9,7 @@ import { formatCount, type FeedItem, type Post, type UserProfile } from "@projec
 import { api, errorMessage } from "../../../src/api/client";
 import { useFollow, useProfile, useRelationshipAction, useUserPosts } from "../../../src/api/hooks";
 import { Feed } from "../../../src/components/Feed";
+import { MediaTabGrid } from "../../../src/components/MediaTabGrid";
 import { SHARE_BASE, openReport } from "../../../src/components/PostCard";
 import { useSheet, type SheetOption } from "../../../src/components/Sheet";
 import { toast } from "../../../src/components/Toast";
@@ -179,13 +180,16 @@ function ProfileBody({ user }: { user: UserProfile }) {
       />
     );
   }
+  if (tab === "media") {
+    return <MediaTabGrid query={posts} header={header} empty={<EmptyState title={`@${user.handle} hasn't posted media yet`} />} />;
+  }
   return (
     <Feed
       query={posts}
       surface={`profile:${tab}`}
       header={header}
       pinned={pinnedItem}
-      empty={<EmptyState title={tab === "likes" ? "You don't have any likes yet" : `@${user.handle} hasn't posted ${tab === "media" ? "media" : ""} yet`} />}
+      empty={<EmptyState title={tab === "likes" ? "You don't have any likes yet" : `@${user.handle} hasn't posted yet`} />}
     />
   );
 }

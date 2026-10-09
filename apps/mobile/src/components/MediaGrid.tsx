@@ -2,12 +2,15 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 import type { Media } from "@projectfeed/shared";
+import { InlineVideo } from "./InlineVideo";
 import { radius, useTheme } from "../theme";
 
 /** X-style 1–4 image grid with rounded outer corners. Tapping opens the full-screen viewer. */
-export function MediaGrid({ media, postId }: { media: Media[]; postId?: string }) {
+export function MediaGrid({ media, postId, surface = "feed" }: { media: Media[]; postId?: string; surface?: string }) {
   const t = useTheme();
   if (media.length === 0) return null;
+  const first = media[0]!;
+  if (first.type === "video" && postId) return <InlineVideo media={first} postId={postId} surface={surface} />;
   const open = (index: number) =>
     router.push({ pathname: "/media-viewer", params: { urls: JSON.stringify(media.map((m) => m.url)), index: String(index), postId: postId ?? "" } });
 

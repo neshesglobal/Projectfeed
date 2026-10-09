@@ -12,6 +12,8 @@ export default function AppLayout() {
       <Stack.Screen name="report" options={{ presentation: "modal" }} />
       <Stack.Screen name="new-message" options={{ presentation: "modal" }} />
       <Stack.Screen name="account-menu" options={{ presentation: "transparentModal", animation: "fade" }} />
+      <Stack.Screen name="reels/[id]" options={{ animation: "slide_from_bottom", contentStyle: { backgroundColor: "#000" } }} />
+      <Stack.Screen name="video-viewer" options={{ presentation: "fullScreenModal", animation: "fade" }} />
       <Stack.Screen name="media-viewer" options={{ presentation: "fullScreenModal", animation: "fade" }} />
     </Stack>
   );

@@ -7,7 +7,7 @@ import { useAuth } from "../store/auth";
  * so they are collected from day one. Batched and flushed every 10s or when backgrounded.
  */
 
-type EventType = "impression" | "dwell" | "click_post" | "click_profile" | "click_link" | "media_expand" | "share";
+type EventType = "impression" | "dwell" | "click_post" | "click_profile" | "click_link" | "media_expand" | "video_view" | "share";
 
 interface ClientEvent {
   type: EventType;

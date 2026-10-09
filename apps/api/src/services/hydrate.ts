@@ -140,11 +140,11 @@ export async function mediaFor(ctx: HydrateCtx, table: "post_media" | "message_m
   const rows =
     table === "post_media"
       ? await ctx.db<(MediaRow & { owner: string })[]>`
-          SELECT pm.post_id AS owner, m.id, m.type, m.storage_key, m.thumb_key, m.width, m.height, m.alt_text
+          SELECT pm.post_id AS owner, m.id, m.type, m.storage_key, m.thumb_key, m.width, m.height, m.alt_text, m.status, m.duration_ms, m.error
           FROM post_media pm JOIN media m ON m.id = pm.media_id
           WHERE pm.post_id = ANY(${ids}::bigint[]) ORDER BY pm.position`
       : await ctx.db<(MediaRow & { owner: string })[]>`
-          SELECT mm.message_id AS owner, m.id, m.type, m.storage_key, m.thumb_key, m.width, m.height, m.alt_text
+          SELECT mm.message_id AS owner, m.id, m.type, m.storage_key, m.thumb_key, m.width, m.height, m.alt_text, m.status, m.duration_ms, m.error
           FROM message_media mm JOIN media m ON m.id = mm.media_id
           WHERE mm.message_id = ANY(${ids}::bigint[]) ORDER BY mm.position`;
   for (const r of rows) {
@@ -163,17 +163,26 @@ export interface MediaRow {
   width: number;
   height: number;
   alt_text: string;
+  status: Media["status"];
+  duration_ms: number | null;
+  error: string | null;
 }
 
+export const MEDIA_COLUMNS = "id, type, storage_key, thumb_key, width, height, alt_text, status, duration_ms, error";
+
 export function toMedia(ctx: HydrateCtx, r: MediaRow): Media {
+  const ready = r.status === "ready";
   return {
     id: r.id,
     type: r.type,
-    url: ctx.storage.url(r.storage_key),
-    thumbUrl: ctx.storage.url(r.thumb_key),
+    url: ready ? ctx.storage.url(r.storage_key) : "",
+    thumbUrl: ready ? ctx.storage.url(r.thumb_key) : "",
     width: r.width,
     height: r.height,
     altText: r.alt_text,
+    status: r.status,
+    durationMs: r.duration_ms,
+    ...(r.error ? { error: r.error } : {}),
   };
 }
 

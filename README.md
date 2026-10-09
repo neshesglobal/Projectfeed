@@ -16,6 +16,9 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 | Graph | Follow/unfollow, follow requests for protected accounts, remove follower, block (two-way), mute, muted words/#tags/$tags, who-to-follow |
 | Posts | 280 weighted characters, @mentions, #hashtags, $cashtags, links, up to 4 images (EXIF stripped), polls, threads, replies with audience controls, quotes, reposts, edit within 30 minutes with history, delete |
 | Feeds | **For You** (rule-based Feed Mixer modelled on X's open-source Home Mixer: in-network + "liked by" + sector + popular sources, then filters, scoring, author diversity and an out-of-network cap, with a "why you're seeing this" reason) · **Following** (chronological, with reposts) · pinned **Lists** as Home tabs · "New posts" pill |
+| Photos | Up to 4 per post, camera capture, image descriptions (alt text), EXIF/GPS stripped, WebP re-encode, full-screen viewer with pinch-to-zoom and double-tap zoom |
+| Video | Upload from the library or camera (up to 10 minutes / 512MB) with live upload progress; server transcodes to H.264/AAC MP4 (720p-class, faststart), generates a poster and strips all metadata including location; inline autoplay (muted, one at a time, the most visible card) with duration countdown and a sound toggle; video in DMs |
+| Reels | Full-screen vertical swipe feed (own tab, and opened by tapping any video), ranked by watch completion and average watch time, then engagement, freshness, portrait format and author diversity; tap to pause, double-tap to like, action rail, progress bar, neighbours preloaded; watch time reported per view |
 | Engagement | Likes, bookmarks, view counts, engagement lists, share, "Not interested" |
 | Notifications | Grouped ("A and 3 others liked…"), All / Verified / Mentions tabs, unread badges |
 | Search | Posts (Top/Latest/Media, operators `from:`, `filter:media`, `min_faves:`), people, typeahead, trends counted by distinct authors |
@@ -37,7 +40,7 @@ docs/          Plans and screenshots
 
 ## Running locally
 
-Prerequisites: Node 22+, pnpm 10, PostgreSQL 16 (with the `citext` and `pg_trgm` contrib extensions).
+Prerequisites: Node 22+, pnpm 10, PostgreSQL 16 (with the `citext` and `pg_trgm` contrib extensions), and `ffmpeg`/`ffprobe` on the PATH for video processing.
 
 ```bash
 pnpm install
@@ -48,7 +51,7 @@ cp apps/api/.env.example apps/api/.env          # adjust DATABASE_URL if needed
 
 # API (runs migrations on start), then demo data
 pnpm --filter @projectfeed/api dev
-pnpm --filter @projectfeed/api seed             # demo login: demo / projectfeed-demo
+pnpm --filter @projectfeed/api seed             # demo users, posts and reels (needs ffmpeg); login: demo / projectfeed-demo
 
 # App
 pnpm --filter @projectfeed/mobile start         # press i (iOS simulator), a (Android emulator) or w (web)
@@ -62,14 +65,15 @@ The Android emulator reaches `localhost` automatically via `10.0.2.2`.
 
 ```bash
 createdb projectfeed_test
-pnpm --filter @projectfeed/api test        # 45 integration tests against a real Postgres
+pnpm --filter @projectfeed/api test        # 52 integration tests against a real Postgres (and real ffmpeg)
 pnpm typecheck                              # API, shared and mobile
 ```
 
 ## Not built yet (by design)
 
 - **KYC vendor flow** (Sumsub/Veriff SDK, webhooks, review queue). The `kyc_level` column, badge and `KYC_ENFORCED` gate are already in place.
-- **Video** (Mux), **push notifications** (APNs/FCM), **WebSocket** delivery for DMs (the app polls for now), **S3** storage (local disk adapter today), **CSAM hash-matching** (the hook point is marked in `routes/media.ts`) and an **admin moderation console**.
+- **Adaptive streaming**: video is a single 720p MP4 today; production should use a managed transcoder (Mux or Cloudflare Stream) for HLS adaptive bitrate. The media `status` contract stays the same.
+- **Push notifications** (APNs/FCM), **WebSocket** delivery for DMs (the app polls for now), **S3** storage (local disk adapter today), **CSAM hash-matching** (the hook point is marked in `routes/media.ts`) and an **admin moderation console**.
 - **AI features and ML ranking.** The Feed Mixer's stages are the seams for these.
 
 ### Must be in place before a public launch

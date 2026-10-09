@@ -5,10 +5,10 @@ import { track } from "../lib/events";
 import { font, useTheme } from "../theme";
 
 /** Post text with tappable @mentions, #hashtags, $cashtags and links. */
-export function RichText({ text, size = "md", postId }: { text: string; size?: keyof typeof font; postId?: string }) {
+export function RichText({ text, size = "md", postId, color, numberOfLines }: { text: string; size?: keyof typeof font; postId?: string; color?: string; numberOfLines?: number }) {
   const t = useTheme();
   const entities = extractEntities(text);
-  const base: TextStyle = { color: t.text, fontSize: font[size], lineHeight: font[size] * 1.35 };
+  const base: TextStyle = { color: color ?? t.text, fontSize: font[size], lineHeight: font[size] * 1.35 };
   const link: TextStyle = { color: t.accent };
 
   const parts: React.ReactNode[] = [];
@@ -35,7 +35,11 @@ export function RichText({ text, size = "md", postId }: { text: string; size?: k
   });
   if (last < text.length) parts.push(text.slice(last));
 
-  return <RNText style={base}>{parts}</RNText>;
+  return (
+    <RNText style={base} numberOfLines={numberOfLines}>
+      {parts}
+    </RNText>
+  );
 }
 
 function shortenUrl(url: string): string {

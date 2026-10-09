@@ -6,6 +6,7 @@ import type { FeedItem, Page, UserSummary } from "@projectfeed/shared";
 import { errorMessage } from "../api/client";
 import { useFollow } from "../api/hooks";
 import { postHidden, postVisible } from "../lib/events";
+import { usePlayback, videoKey } from "../store/playback";
 import { space, useTheme } from "../theme";
 import { FeedItemCard } from "./PostCard";
 import { Button, Divider, EmptyState, ErrorView, Loading, Text, UserRow } from "./ui";
@@ -60,12 +61,17 @@ export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, 
     return out;
   }, [query.data, pinned]);
 
-  const onViewable = useRef(({ changed }: { changed: ViewToken<Row>[] }) => {
+  const onViewable = useRef(({ changed, viewableItems }: { changed: ViewToken<Row>[]; viewableItems: ViewToken<Row>[] }) => {
     for (const v of changed) {
       if (v.item?.kind !== "post") continue;
       if (v.isViewable) postVisible(v.item.item.post.id, surface, v.index ?? 0);
       else postHidden(v.item.item.post.id, surface);
     }
+    // Autoplay the top-most visible video in this feed; stop when none is visible.
+    const firstVideo = viewableItems.find((v) => v.item?.kind === "post" && v.item.item.post.media[0]?.type === "video");
+    const { activeKey, setActive } = usePlayback.getState();
+    if (firstVideo?.item?.kind === "post") setActive(videoKey(surface, firstVideo.item.item.post.id));
+    else if (activeKey?.startsWith(`${surface}:`)) setActive(null);
   }).current;
 
   const renderItem = useCallback(

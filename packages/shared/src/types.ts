@@ -44,6 +44,10 @@ export interface Media {
   width: number;
   height: number;
   altText: string;
+  /** Videos are transcoded asynchronously; only "ready" media can be attached to a post. */
+  status: "processing" | "ready" | "failed";
+  durationMs: number | null;
+  error?: string;
 }
 
 export interface Poll {

@@ -208,7 +208,7 @@ export function QuotedPost({ post }: { post: Post }) {
         </Text>
       </View>
       {post.text ? <RichText text={post.text} size="sm" /> : null}
-      <MediaGrid media={post.media} postId={post.id} />
+      <MediaGrid media={post.media} postId={post.id} surface="quote" />
     </Pressable>
   );
 }
@@ -292,7 +292,7 @@ export const PostCard = memo(function PostCard({
             </Text>
           ) : null}
           {post.text ? <RichText text={post.text} postId={post.id} /> : null}
-          <MediaGrid media={post.media} postId={post.id} />
+          <MediaGrid media={post.media} postId={post.id} surface={surface} />
           {post.poll ? <PollView post={post} /> : null}
           {post.quote ? <QuotedPost post={post.quote} /> : null}
           {post.editedAt ? (

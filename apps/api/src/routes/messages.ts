@@ -188,7 +188,7 @@ const messageRoutes: FastifyPluginAsync = async (app) => {
     const id = newId();
     await sql.begin(async (tx) => {
       if (input.mediaIds.length > 0) {
-        const owned = await tx`SELECT 1 FROM media WHERE id = ANY(${input.mediaIds}::bigint[]) AND owner_id = ${me.id}`;
+        const owned = await tx`SELECT 1 FROM media WHERE id = ANY(${input.mediaIds}::bigint[]) AND owner_id = ${me.id} AND status = 'ready'`;
         if (owned.length !== new Set(input.mediaIds).size) throw badRequest("Invalid media");
       }
       await tx`INSERT INTO messages (id, conversation_id, sender_id, text, shared_post_id)

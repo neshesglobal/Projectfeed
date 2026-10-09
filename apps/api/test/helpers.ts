@@ -31,7 +31,9 @@ export async function setup(overrides: Partial<Config> = {}): Promise<TestEnv> {
     close: async () => {
       await app.close();
       await sql.end();
+      await app.ctx.video.idle();
       fs.rmSync(uploadDir, { recursive: true, force: true });
+      fs.rmSync(`${uploadDir}-tmp`, { recursive: true, force: true });
     },
   };
 }
@@ -76,4 +78,21 @@ export async function post(app: FastifyInstance, user: TestUser, text: string, e
   const r = await call(app, user, "POST", "/v1/posts", { text, ...extra });
   if (r.status !== 201) throw new Error(`post failed: ${JSON.stringify(r.body)}`);
   return r.body as { id: string } & Record<string, any>;
+}
+
+/** Multipart upload of a file buffer to /v1/media. */
+export async function upload(app: FastifyInstance, user: TestUser, data: Buffer, contentType: string, filename = "file") {
+  const boundary = "----pftest";
+  const payload = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`),
+    data,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+  const res = await app.inject({
+    method: "POST",
+    url: "/v1/media",
+    payload,
+    headers: { ...user.auth, "content-type": `multipart/form-data; boundary=${boundary}` },
+  });
+  return { status: res.statusCode, body: res.json() };
 }

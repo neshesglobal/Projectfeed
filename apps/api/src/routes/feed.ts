@@ -4,6 +4,8 @@ import type { FeedItem, Page } from "@projectfeed/shared";
 import { requireUser } from "../lib/auth";
 import { badRequest } from "../lib/errors";
 import { rankForYou, type RankedItem } from "../feed/mixer";
+import { rankReels } from "../feed/reels";
+import { isId } from "../lib/ids";
 import { hydratePosts, orderedSummaries } from "../services/hydrate";
 import { followingTimeline, idCursor, loadViewerFilters, pageSize } from "../services/timeline";
 
@@ -88,6 +90,41 @@ const feedRoutes: FastifyPluginAsync = async (app) => {
       return page;
     },
   );
+
+  /**
+   * Reels: ranked video posts for the full-screen vertical player. `startId` pins the reel the user
+   * tapped in a timeline to the front, followed by the ranked feed.
+   */
+  app.get<{ Querystring: { cursor?: string; limit?: string; startId?: string } }>("/feed/reels", async (req): Promise<Page<FeedItem>> => {
+    const me = requireUser(req);
+    const limit = pageSize(req.query.limit, 10, 30);
+    let key: string;
+    let offset = 0;
+    let ranked: RankedItem[] | null;
+    if (req.query.cursor) {
+      const [k, o] = req.query.cursor.split(":");
+      offset = Number(o);
+      if (!k || !Number.isInteger(offset) || offset < 0) throw badRequest("Invalid cursor");
+      key = k;
+      ranked = sessions.get(k, me.id);
+      if (!ranked) return { items: [], nextCursor: null };
+    } else {
+      const ids = await rankReels(sql, me.id, await loadViewerFilters(sql, me.id));
+      const start = req.query.startId && isId(req.query.startId) ? req.query.startId : null;
+      const ordered = start ? [start, ...ids.filter((id) => id !== start)] : ids;
+      ranked = ordered.map((postId) => ({ postId, reason: null }));
+      key = sessions.create(me.id, ranked);
+    }
+    const slice = ranked.slice(offset, offset + limit);
+    const posts = await hydratePosts(hctx, me.id, slice.map((r) => r.postId));
+    const items: FeedItem[] = [];
+    for (const r of slice) {
+      const post = posts.get(r.postId);
+      // The pinned start post may be any video post (e.g. a reply); still require that it is visible and has video.
+      if (post && !post.unavailable && post.media.some((m) => m.type === "video")) items.push({ post, repostedBy: null, reason: null });
+    }
+    return { items, nextCursor: offset + limit < ranked.length ? `${key}:${offset + limit}` : null };
+  });
 };
 
 export default feedRoutes;

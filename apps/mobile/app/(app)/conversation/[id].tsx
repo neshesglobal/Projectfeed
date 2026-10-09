@@ -8,7 +8,8 @@ import { FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatRelativeTime, type Conversation, type Message } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
-import { uploadImage, useMessages } from "../../../src/api/hooks";
+import { useMessages } from "../../../src/api/hooks";
+import { uploadWithProgress, waitUntilReady, type LocalAsset } from "../../../src/lib/upload";
 import { QuotedPost, openReport } from "../../../src/components/PostCard";
 import { useSheet } from "../../../src/components/Sheet";
 import { toast } from "../../../src/components/Toast";
@@ -23,7 +24,23 @@ function Bubble({ m, mine, onLongPress }: { m: Message; mine: boolean; onLongPre
     <Pressable onLongPress={onLongPress} delayLongPress={300} style={{ alignItems: mine ? "flex-end" : "flex-start", paddingHorizontal: space.lg, marginVertical: 3 }}>
       <View style={{ maxWidth: "80%", gap: 4 }}>
         {m.media.map((med) => (
-          <Image key={med.id} source={{ uri: med.thumbUrl }} style={{ width: 220, height: 220 * (med.height / Math.max(med.width, 1)), borderRadius: radius.lg }} contentFit="cover" />
+          <Pressable
+            key={med.id}
+            accessibilityRole="imagebutton"
+            accessibilityLabel={med.type === "video" ? "Play video" : med.altText || "Image"}
+            onPress={() =>
+              med.type === "video"
+                ? router.push({ pathname: "/video-viewer", params: { url: med.url, poster: med.thumbUrl } })
+                : router.push({ pathname: "/media-viewer", params: { urls: JSON.stringify([med.url]), index: "0" } })
+            }
+          >
+            <Image source={{ uri: med.thumbUrl }} style={{ width: 220, height: Math.min(360, 220 * (med.height / Math.max(med.width, 1))), borderRadius: radius.lg }} contentFit="cover" />
+            {med.type === "video" ? (
+              <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="play-circle" size={52} color="rgba(255,255,255,0.9)" />
+              </View>
+            ) : null}
+          </Pressable>
         ))}
         {m.sharedPost ? <QuotedPost post={m.sharedPost} /> : null}
         {m.deleted ? (
@@ -83,8 +100,13 @@ export default function ConversationScreen() {
   }, [latestId, id, qc]);
 
   const send = useMutation({
-    mutationFn: async (input: { text: string; imageUri?: string; mimeType?: string }) => {
-      const mediaIds = input.imageUri ? [(await uploadImage(input.imageUri, input.mimeType)).id] : [];
+    mutationFn: async (input: { text: string; asset?: LocalAsset }) => {
+      let mediaIds: string[] = [];
+      if (input.asset) {
+        toast(input.asset.kind === "video" ? "Uploading video…" : "Uploading photo…");
+        const uploaded = await uploadWithProgress(input.asset, () => {});
+        mediaIds = [(await waitUntilReady(uploaded)).id];
+      }
       return api<Message>(`/conversations/${id}/messages`, { method: "POST", body: { text: input.text, mediaIds } });
     },
     onSuccess: () => {
@@ -113,8 +135,14 @@ export default function ConversationScreen() {
   };
 
   const attach = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.9 });
-    if (!res.canceled && res.assets[0]) send.mutate({ text: "", imageUri: res.assets[0].uri, mimeType: res.assets[0].mimeType ?? undefined });
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images", "videos"], quality: 0.9, videoMaxDuration: 600 });
+    const a = res.canceled ? null : res.assets[0];
+    if (a) {
+      send.mutate({
+        text: "",
+        asset: { uri: a.uri, mimeType: a.mimeType ?? undefined, kind: a.type === "video" ? "video" : "image", durationMs: a.duration ?? null, fileName: a.fileName ?? null },
+      });
+    }
   };
 
   const messageMenu = (m: Message) => {
@@ -216,7 +244,7 @@ export default function ConversationScreen() {
           </View>
         ) : null}
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, padding: space.sm, paddingBottom: insets.bottom + space.sm, borderTopWidth: 1, borderTopColor: t.border }}>
-          <IconButton name="image-outline" label="Attach photo" color={t.accent} onPress={() => void attach()} />
+          <IconButton name="image-outline" label="Attach photo or video" color={t.accent} onPress={() => void attach()} />
           <TextInput
             value={text}
             onChangeText={setText}

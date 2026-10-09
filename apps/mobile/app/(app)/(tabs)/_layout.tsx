@@ -35,6 +35,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="reels"
+        options={{
+          title: "Reels",
+          // Reels is a black, full-bleed surface regardless of theme.
+          tabBarStyle: { backgroundColor: "#000", borderTopColor: "#222" },
+          tabBarActiveTintColor: "#fff",
+          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "play-circle" : "play-circle-outline"} size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           title: "Notifications",

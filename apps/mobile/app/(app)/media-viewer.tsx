@@ -1,12 +1,12 @@
-import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconButton, Text } from "../../src/components/ui";
+import { ZoomableImage } from "../../src/components/ZoomableImage";
 import { track } from "../../src/lib/events";
 
-/** Full-screen, swipeable image viewer. */
+/** Full-screen, swipeable photo viewer with pinch-to-zoom and double-tap zoom. */
 export default function MediaViewer() {
   const { urls, index, postId } = useLocalSearchParams<{ urls: string; index: string; postId?: string }>();
   const { width, height } = useWindowDimensions();
@@ -20,6 +20,7 @@ export default function MediaViewer() {
   })();
   const start = Number(index ?? 0);
   const [current, setCurrent] = useState(start);
+  const [zoomed, setZoomed] = useState(false);
 
   useEffect(() => {
     if (postId) track({ type: "media_expand", postId, surface: "media_viewer" });
@@ -31,12 +32,17 @@ export default function MediaViewer() {
         data={list}
         horizontal
         pagingEnabled
+        scrollEnabled={!zoomed}
         initialScrollIndex={start}
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
         keyExtractor={(u) => u}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => setCurrent(Math.round(e.nativeEvent.contentOffset.x / width))}
-        renderItem={({ item }) => <Image source={{ uri: item }} style={{ width, height }} contentFit="contain" />}
+        renderItem={({ item }) => (
+          <View style={{ width, height, overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
+            <ZoomableImage uri={item} width={width} height={height} onZoomChange={setZoomed} />
+          </View>
+        )}
       />
       <View style={{ position: "absolute", top: insets.top + 8, left: 8, right: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <IconButton name="close" label="Close" color="#fff" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onPress={() => router.back()} />
