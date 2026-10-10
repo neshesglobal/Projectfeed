@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
+import { useStanding } from "../../../src/api/hooks";
 import { Group, Header, Screen, Text, type IconName } from "../../../src/components/ui";
 import { space, useTheme } from "../../../src/theme";
 
-function Row({ icon, title, body, path, first }: { icon: IconName; title: string; body: string; path: string; first?: boolean }) {
+function Row({ icon, title, body, path, first, badge }: { icon: IconName; title: string; body: string; path: string; first?: boolean; badge?: boolean }) {
   const t = useTheme();
   return (
     <Pressable
@@ -20,18 +21,23 @@ function Row({ icon, title, body, path, first }: { icon: IconName; title: string
           {body}
         </Text>
       </View>
+      {badge ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.danger }} /> : null}
       <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
     </Pressable>
   );
 }
 
 export default function Settings() {
+  const standing = useStanding().data;
+  const standingBody =
+    standing?.status === "suspended" ? "Suspended · read-only" : standing?.status === "frozen" ? "Under review" : "Good standing · decisions and appeals";
   return (
     <Screen>
       <Header title="Settings" />
       <ScrollView contentContainerStyle={{ paddingTop: space.sm, paddingBottom: 60 }}>
         <Group>
         <Row first icon="person-outline" title="Your account" body="Password, sessions, download your data, delete account" path="/settings/account" />
+        <Row icon="pulse-outline" title="Account status" body={standingBody} path="/settings/standing" badge={!!standing && (standing.unread > 0 || standing.status !== "active")} />
         <Row icon="shield-checkmark-outline" title="Verification" body="Identity verification status" path="/settings/verification" />
         <Row icon="lock-closed-outline" title="Privacy and safety" body="Protected posts, blocked and muted accounts" path="/settings/privacy" />
         <Row icon="volume-mute-outline" title="Muted words" body="Hide posts containing words, #hashtags or $cashtags" path="/settings/muted-words" />

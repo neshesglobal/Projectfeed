@@ -50,7 +50,9 @@ async function sources(db: Db, viewerId: string): Promise<Candidate[]> {
   const since = idAtTime(new Date(Date.now() - WEIGHTS.lookbackHours * 3600_000));
   const cols = () => db`p.id AS "postId", p.author_id AS "authorId", p.text, p.like_count AS likes, p.reply_count AS replies,
                   p.repost_count AS reposts, p.quote_count AS quotes, p.bookmark_count AS bookmarks, p.created_at AS "createdAt"`;
-  const base = () => db`p.deleted_at IS NULL AND p.id > ${since} AND p.author_id <> ${viewerId}`;
+  const base = () => db`p.deleted_at IS NULL AND p.removed_at IS NULL AND p.id > ${since} AND p.author_id <> ${viewerId}`;
+  // Reach-limited posts (moderation "limit_reach") still reach followers, but are never recommended out of network.
+  const oon = () => db`${base()} AND NOT p.limited`;
 
   const [inNet, social, sector, popular] = await Promise.all([
     db<Row[]>`
@@ -62,18 +64,18 @@ async function sources(db: Db, viewerId: string): Promise<Candidate[]> {
     db<Row[]>`
       SELECT DISTINCT ON (p.id) ${cols()}, 'Liked by @' || u.handle AS reason
       FROM likes l JOIN posts p ON p.id = l.post_id JOIN users u ON u.id = l.user_id
-      WHERE ${base()} AND p.reply_to_id IS NULL
+      WHERE ${oon()} AND p.reply_to_id IS NULL
         AND l.user_id IN (SELECT followee_id FROM follows WHERE follower_id = ${viewerId})
         AND p.author_id NOT IN (SELECT followee_id FROM follows WHERE follower_id = ${viewerId})
       ORDER BY p.id DESC LIMIT 200`,
     db<Row[]>`
       SELECT ${cols()}, 'Popular in ' || (SELECT s FROM unnest(a.sectors) s WHERE s = ANY(me.sectors) LIMIT 1) AS reason
       FROM posts p JOIN users a ON a.id = p.author_id, users me
-      WHERE me.id = ${viewerId} AND ${base()} AND p.reply_to_id IS NULL AND a.sectors && me.sectors
+      WHERE me.id = ${viewerId} AND ${oon()} AND p.reply_to_id IS NULL AND a.sectors && me.sectors
       ORDER BY (p.like_count + 2 * p.repost_count + 4 * p.reply_count) DESC LIMIT 100`,
     db<Row[]>`
       SELECT ${cols()}, 'Popular on Projectfeed' AS reason FROM posts p
-      WHERE ${base()} AND p.reply_to_id IS NULL
+      WHERE ${oon()} AND p.reply_to_id IS NULL
       ORDER BY (p.like_count + 2 * p.repost_count + 4 * p.reply_count) DESC, p.id DESC LIMIT 100`,
   ]);
 

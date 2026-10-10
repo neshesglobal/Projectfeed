@@ -48,9 +48,14 @@ describe("settings, suspension & account deletion", () => {
     expect((await call(env.app, null, "POST", "/v1/auth/login", { identifier: "pwuser", password: "another-long-password" })).status).toBe(200);
   });
 
-  it("locks out suspended accounts immediately", async () => {
+  it("makes suspended accounts read-only and locks out banned ones immediately", async () => {
     const u = await register(env.app, "baduser");
     await env.sql`UPDATE users SET status = 'suspended' WHERE id = ${u.id}`;
+    expect((await call(env.app, u, "GET", "/v1/me")).status).toBe(200);
+    const blocked = await call(env.app, u, "POST", "/v1/posts", { text: "still here" });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error.code).toBe("ACCOUNT_SUSPENDED");
+    await env.sql`UPDATE users SET status = 'banned' WHERE id = ${u.id}`;
     expect((await call(env.app, u, "GET", "/v1/me")).status).toBe(401);
   });
 

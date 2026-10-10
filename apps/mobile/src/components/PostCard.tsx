@@ -200,13 +200,29 @@ export function usePostMenu() {
   };
 }
 
+/** Tombstone copy for posts the viewer can't see. */
+export function unavailableText(reason: Post["unavailable"]): string {
+  switch (reason) {
+    case "removed":
+      return "This post was removed for breaking the Projectfeed Rules.";
+    case "suspended":
+      return "This post is from a suspended account.";
+    case "protected":
+      return "This post is from an account that has protected its posts.";
+    case "blocked":
+      return "This post is unavailable.";
+    default:
+      return "This post was deleted.";
+  }
+}
+
 /** Compact embedded quote. */
 export function QuotedPost({ post }: { post: Post }) {
   const t = useTheme();
   if (post.unavailable) {
     return (
       <View style={{ marginTop: space.md, backgroundColor: t.bgInput, borderRadius: radius.md, padding: space.md }}>
-        <Text muted>This post is unavailable.</Text>
+        <Text muted>{unavailableText(post.unavailable)}</Text>
       </View>
     );
   }
@@ -223,7 +239,7 @@ export function QuotedPost({ post }: { post: Post }) {
         </Text>
       </View>
       {post.text ? <RichText text={post.text} size="sm" /> : null}
-      <MediaGrid media={post.media} postId={post.id} surface="quote" />
+      <MediaGrid media={post.media} postId={post.id} surface="quote" sensitive={post.sensitive} />
     </Pressable>
   );
 }
@@ -341,7 +357,7 @@ export const PostCard = memo(function PostCard({
                 <RichText text={post.text} postId={post.id} />
               </View>
             ) : null}
-            <MediaGrid media={post.media} postId={post.id} surface={surface} />
+            <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
             {post.poll ? <PollView post={post} /> : null}
             {post.quote ? <QuotedPost post={post.quote} /> : null}
             <PostActions post={post} dense />
@@ -392,7 +408,7 @@ export const PostCard = memo(function PostCard({
             <RichText text={post.text} postId={post.id} />
           </View>
         ) : null}
-        <MediaGrid media={post.media} postId={post.id} surface={surface} />
+        <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
         {post.poll ? <PollView post={post} /> : null}
         {post.quote ? <QuotedPost post={post.quote} /> : null}
         <PostActions post={post} compact={compact} />

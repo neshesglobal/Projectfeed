@@ -67,7 +67,7 @@ export async function rankReels(db: Db, viewerId: string, filters: ViewerFilters
     JOIN post_media pm ON pm.post_id = p.id
     JOIN media m ON m.id = pm.media_id AND m.type = 'video' AND m.status = 'ready'
     LEFT JOIN video_stats vs ON vs.post_id = p.id
-    WHERE p.has_video AND p.deleted_at IS NULL AND p.reply_to_id IS NULL AND p.id > ${since}
+    WHERE p.has_video AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.limited AND NOT p.sensitive AND p.reply_to_id IS NULL AND p.id > ${since}
     ORDER BY p.id DESC LIMIT 1000`;
 
   const now = Date.now();

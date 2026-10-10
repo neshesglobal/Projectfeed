@@ -8,7 +8,7 @@ import { api, errorMessage } from "../../../src/api/client";
 import { useThread } from "../../../src/api/hooks";
 import { MediaGrid } from "../../../src/components/MediaGrid";
 import { PollView } from "../../../src/components/PollView";
-import { PostActions, PostCard, QuotedPost, usePostMenu } from "../../../src/components/PostCard";
+import { PostActions, PostCard, QuotedPost, unavailableText, usePostMenu } from "../../../src/components/PostCard";
 import { RichText } from "../../../src/components/RichText";
 import { Card, Glass } from "../../../src/components/glass";
 import { Avatar, Divider, ErrorView, Header, IconButton, Loading, NameLine, Screen, Text } from "../../../src/components/ui";
@@ -50,7 +50,7 @@ function FocalPost({ post }: { post: Post }) {
         </Text>
       ) : null}
       {post.text ? <RichText text={post.text} size="lg" postId={post.id} /> : null}
-      <MediaGrid media={post.media} postId={post.id} />
+      <MediaGrid media={post.media} postId={post.id} sensitive={post.sensitive} />
       {post.poll ? <PollView post={post} /> : null}
       {post.quote ? <QuotedPost post={post.quote} /> : null}
       <Text muted>
@@ -140,7 +140,7 @@ export default function PostScreen() {
           if (item.kind === "ancestor") {
             return item.post.unavailable ? (
               <Text muted style={{ padding: space.lg }}>
-                This post is unavailable.
+                {unavailableText(item.post.unavailable)}
               </Text>
             ) : (
               <PostCard post={item.post} threadLineBelow surface="thread" threadLineAbove={ancestors[0]?.id !== item.post.id} />

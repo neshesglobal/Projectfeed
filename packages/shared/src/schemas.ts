@@ -156,3 +156,40 @@ export const eventsSchema = z.object({
     )
     .max(200),
 });
+
+// ───────────────────────────── Moderation ─────────────────────────────
+
+/** Policy reasons a moderator cites in a statement of reasons (shown to the affected user). */
+export const MODERATION_REASONS = [
+  ...REPORT_REASONS.filter((r) => r !== "other"),
+  "adult_content",
+  "graphic_content",
+  "misleading",
+  "platform_manipulation",
+  "legal_request",
+  "other",
+] as const;
+
+export const MODERATION_ACTIONS = [
+  "remove_post",
+  "restore_post",
+  "label_sensitive",
+  "unlabel_sensitive",
+  "limit_reach",
+  "unlimit_reach",
+  "warn",
+  "suspend",
+  "unsuspend",
+  "freeze",
+  "unfreeze",
+  "ban",
+  "unban",
+] as const;
+
+/** Decisions a user can appeal (reversals and automated freezes are not appealable). */
+export const APPEALABLE_ACTIONS = ["remove_post", "label_sensitive", "limit_reach", "warn", "suspend", "ban"] as const;
+
+export const appealSchema = z.object({
+  actionId: z.string(),
+  text: z.string().trim().min(10, "Tell us why you think this decision was wrong").max(2000),
+});

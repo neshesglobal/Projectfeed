@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import type {
+  AccountStanding,
   Conversation,
   FeedItem,
   Media,
@@ -272,3 +273,30 @@ export const useMessages = (cid: string) => usePaged<Message>(["messages", cid],
 // ───────────── Lists ─────────────
 export const useMyLists = () => useQuery({ queryKey: ["lists"], queryFn: () => api<Page<UserList>>("/me/lists") });
 export const useList = (id: string) => useQuery({ queryKey: ["list", id], queryFn: () => api<UserList>(`/lists/${id}`) });
+
+// ───────────── Account standing & appeals ─────────────
+export function useStanding() {
+  const signedIn = useAuth((s) => s.status === "signedIn");
+  return useQuery({
+    queryKey: ["standing"],
+    enabled: signedIn,
+    staleTime: 60_000,
+    queryFn: () => api<AccountStanding>("/me/standing"),
+  });
+}
+
+export function useMarkNoticesRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api("/me/moderation-notices/read", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["standing"] }),
+  });
+}
+
+export function useAppeal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { actionId: string; text: string }) => api<{ id: string }>("/me/appeals", { method: "POST", body: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["standing"] }),
+  });
+}

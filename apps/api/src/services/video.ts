@@ -8,6 +8,7 @@ import path from "node:path";
 import sharp from "sharp";
 import type { Sql } from "../db";
 import type { Storage } from "../lib/storage";
+import { fileDigests, recordScan, type MediaScanner } from "./screening";
 
 export const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/webm", "video/x-m4v", "video/3gpp", "video/x-matroska"]);
 export const MAX_VIDEO_BYTES = 512 * 1024 * 1024;
@@ -78,6 +79,17 @@ export async function posterFrame(video: string, output: string, durationMs: num
   await run("ffmpeg", ["-y", "-v", "error", "-ss", at, "-i", video, "-frames:v", "1", "-q:v", "3", output], 60_000);
 }
 
+/** Keyframes at 10%, 50% and 90% of the video, as JPEG buffers, for hash screening. */
+async function sampleFrames(video: string, durationMs: number, work: string): Promise<Buffer[]> {
+  const out: Buffer[] = [];
+  for (const [i, f] of [0.1, 0.5, 0.9].entries()) {
+    const file = path.join(work, `frame-${i}.jpg`);
+    await run("ffmpeg", ["-y", "-v", "error", "-ss", ((durationMs * f) / 1000).toFixed(2), "-i", video, "-frames:v", "1", "-q:v", "3", file], 60_000);
+    out.push(await fs.readFile(file).catch(() => Buffer.alloc(0)));
+  }
+  return out.filter((b) => b.length > 0);
+}
+
 /** Bounded in-process job queue for video processing. */
 export class VideoProcessor {
   private queue: string[] = [];
@@ -87,6 +99,7 @@ export class VideoProcessor {
   constructor(
     private sql: Sql,
     private storage: Storage,
+    private scanner: MediaScanner,
     private concurrency = Number(process.env.VIDEO_CONCURRENCY ?? 1),
   ) {}
 
@@ -140,7 +153,10 @@ export class VideoProcessor {
       const final = await probe(out);
       await posterFrame(out, posterJpg, final.durationMs);
       const poster = await sharp(posterJpg).webp({ quality: 80 }).toBuffer();
-      // Hook: CSAM hash-matching on sampled keyframes must run here before anything is published.
+      // Screen the original file and sampled keyframes before anything is published.
+      const frames = await sampleFrames(out, final.durationMs, work);
+      const scan = await this.scanner.scan({ digests: await fileDigests(m.source_key), frames: [await fs.readFile(posterJpg), ...frames] });
+      if ((await recordScan(this.sql, { id, ownerId: m.owner_id }, scan)) === "quarantined") return;
 
       const key = `${m.owner_id}/${id}.mp4`;
       const thumbKey = `${m.owner_id}/${id}_poster.webp`;

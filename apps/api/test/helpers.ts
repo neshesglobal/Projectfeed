@@ -4,6 +4,10 @@ import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { AuthTokens } from "@projectfeed/shared";
 import { buildApp } from "../src/app";
+import { hashPassword } from "../src/lib/auth";
+import { newId } from "../src/lib/ids";
+import type { StaffRole } from "../src/lib/staff";
+import { NoopScanner, type MediaScanner } from "../src/services/screening";
 import { config, type Config } from "../src/config";
 import { createDb, migrate, type Sql } from "../src/db";
 
@@ -17,14 +21,14 @@ export interface TestEnv {
 }
 
 /** Fresh schema per test file, so files are independent. */
-export async function setup(overrides: Partial<Config> = {}): Promise<TestEnv> {
+export async function setup(overrides: Partial<Config> = {}, opts: { scanner?: MediaScanner } = {}): Promise<TestEnv> {
   const sql = createDb(TEST_DB);
   await sql.unsafe("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   await migrate(sql);
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "pf-uploads-"));
   process.env.RATE_LIMIT_PER_MIN = "100000";
   process.env.AUTH_RATE_LIMIT_PER_MIN = "100000";
-  const app = await buildApp({ ...config, databaseUrl: TEST_DB, uploadDir, ...overrides }, sql);
+  const app = await buildApp({ ...config, databaseUrl: TEST_DB, uploadDir, ...overrides }, sql, { scanner: opts.scanner ?? new NoopScanner() });
   return {
     app,
     sql,
@@ -95,4 +99,31 @@ export async function upload(app: FastifyInstance, user: TestUser, data: Buffer,
     headers: { ...user.auth, "content-type": `multipart/form-data; boundary=${boundary}` },
   });
   return { status: res.statusCode, body: res.json() };
+}
+
+export interface TestStaff {
+  id: string;
+  role: StaffRole;
+  token: string;
+  auth: { authorization: string };
+}
+
+let staffCounter = 0;
+
+/** Create a staff account directly in the database and sign in through the console API. */
+export async function createStaff(env: TestEnv, role: StaffRole): Promise<TestStaff> {
+  const email = `${role}${++staffCounter}@staff.test`;
+  const id = newId();
+  await env.sql`INSERT INTO staff (id, email, password_hash, display_name, role)
+                VALUES (${id}, ${email}, ${await hashPassword("staff-password-123")}, ${`${role} ${staffCounter}`}, ${role})`;
+  const res = await env.app.inject({ method: "POST", url: "/admin/v1/auth/login", payload: { email, password: "staff-password-123" } });
+  if (res.statusCode !== 200) throw new Error(`staff login failed: ${res.body}`);
+  const token = res.json<{ token: string }>().token;
+  return { id, role, token, auth: { authorization: `Bearer ${token}` } };
+}
+
+/** Request against the moderation console API as a staff member. */
+export async function admin<T = any>(app: FastifyInstance, staff: TestStaff | null, method: Method, url: string, payload?: unknown) {
+  const res = await app.inject({ method, url: `/admin/v1${url}`, payload: payload as any, headers: staff ? staff.auth : {} });
+  return { status: res.statusCode, body: (res.body ? res.json() : null) as T };
 }

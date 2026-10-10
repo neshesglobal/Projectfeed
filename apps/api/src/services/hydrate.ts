@@ -83,7 +83,7 @@ export async function userProfile(ctx: HydrateCtx, viewerId: string | null, user
     FROM users u
     LEFT JOIN media am ON am.id = u.avatar_media_id
     LEFT JOIN media bm ON bm.id = u.banner_media_id
-    WHERE u.id = ${userId} AND u.status IN ('active')`;
+    WHERE u.id = ${userId} AND (u.status = 'active' OR u.id = ${viewerId ?? ANON})`;
   if (!r) return null;
   return {
     ...toSummary(ctx, r),
@@ -114,6 +114,8 @@ interface PostRow extends UserRow {
   edited_at: Date | null;
   edit_count: number;
   deleted_at: Date | null;
+  removed_at: Date | null;
+  sensitive: boolean;
   conversation_id: string;
   reply_to_id: string | null;
   reply_to_handle: string | null;
@@ -213,7 +215,8 @@ async function pollsFor(ctx: HydrateCtx, viewerId: string, ids: string[]): Promi
 }
 
 /**
- * Hydrate posts for a viewer. Posts the viewer may not see (deleted, blocked, protected)
+ * Hydrate posts for a viewer. Posts the viewer may not see (deleted, removed by moderation, suspended author,
+ * blocked, protected)
  * come back as placeholders with `unavailable` set, so threads and quotes can render a tombstone.
  * Quotes are hydrated one level deep.
  */
@@ -229,7 +232,7 @@ export async function hydratePosts(
   const v = viewerId ?? ANON;
 
   const rows = await ctx.db<PostRow[]>`
-    SELECT p.id AS post_id, p.author_id, p.text, p.created_at, p.edited_at, p.edit_count, p.deleted_at,
+    SELECT p.id AS post_id, p.author_id, p.text, p.created_at, p.edited_at, p.edit_count, p.deleted_at, p.removed_at, p.sensitive,
            p.conversation_id, p.reply_to_id, ru.handle::text AS reply_to_handle, p.quote_of_id, p.reply_audience,
            p.reply_count, p.repost_count, p.quote_count, p.like_count, p.bookmark_count, p.view_count,
            u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected,
@@ -248,7 +251,7 @@ export async function hydratePosts(
     LEFT JOIN users ru ON ru.id = p.reply_to_author_id
     WHERE p.id = ANY(${unique}::bigint[])`;
 
-  const visibleIds = rows.filter((r) => !r.deleted_at).map((r) => r.post_id);
+  const visibleIds = rows.filter((r) => !r.deleted_at && !r.removed_at).map((r) => r.post_id);
   const quoteIds = rows.map((r) => r.quote_of_id).filter((q): q is string => !!q);
   const [media, polls, quotes] = await Promise.all([
     mediaFor(ctx, "post_media", visibleIds),
@@ -259,7 +262,10 @@ export async function hydratePosts(
   for (const r of rows) {
     const isOwn = r.author_id === v;
     let unavailable: Post["unavailable"];
-    if (r.deleted_at || r.author_status !== "active") unavailable = "deleted";
+    if (r.deleted_at || r.author_status === "deleted") unavailable = "deleted";
+    else if (r.removed_at) unavailable = "removed";
+    else if (!isOwn && (r.author_status === "suspended" || r.author_status === "banned")) unavailable = "suspended";
+    else if (!isOwn && r.author_status !== "active") unavailable = "deleted"; // frozen: don't reveal a review
     else if (r.blocked) unavailable = "blocked";
     else if (r.is_protected && !isOwn && !r.viewer_follows_author) unavailable = "protected";
 
@@ -294,6 +300,7 @@ export async function hydratePosts(
       },
       viewer: { liked: r.liked, reposted: r.reposted, bookmarked: r.bookmarked, canReply },
       deleted: !!r.deleted_at,
+      ...(r.sensitive && !unavailable ? { sensitive: true } : {}),
       ...(unavailable ? { unavailable } : {}),
     });
   }

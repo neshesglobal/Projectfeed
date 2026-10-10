@@ -80,7 +80,7 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
     const limit = pageSize(req.query.limit);
     const viewer = req.user?.id ?? null;
 
-    const conditions = [sql`p.deleted_at IS NULL`, sql`u.status = 'active'`];
+    const conditions = [sql`p.deleted_at IS NULL`, sql`p.removed_at IS NULL`, sql`NOT p.limited`, sql`u.status = 'active'`];
     if (q.terms) conditions.push(sql`p.search @@ websearch_to_tsquery('simple', ${q.terms})`);
     if (q.from) conditions.push(sql`u.handle = ${q.from}`);
     if (q.mediaOnly) conditions.push(sql`EXISTS (SELECT 1 FROM post_media pm WHERE pm.post_id = p.id)`);
@@ -130,8 +130,9 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Querystring: { sector?: string } }>("/trends", async (): Promise<{ items: Trend[] }> => {
     const rows = await sql<{ tag: string; kind: "hashtag" | "cashtag"; authors: number; posts: number; baseline: number }[]>`
       WITH recent AS (
-        SELECT tag, kind, count(DISTINCT author_id)::int AS authors, count(*)::int AS posts
-        FROM post_tags WHERE created_at > now() - interval '24 hours' GROUP BY tag, kind
+        SELECT tag, kind, count(DISTINCT pt.author_id)::int AS authors, count(*)::int AS posts
+        FROM post_tags pt JOIN posts p ON p.id = pt.post_id AND NOT p.limited AND p.removed_at IS NULL
+        WHERE pt.created_at > now() - interval '24 hours' GROUP BY tag, kind
       ),
       base AS (
         SELECT tag, kind, count(DISTINCT author_id)::float / 7 AS baseline

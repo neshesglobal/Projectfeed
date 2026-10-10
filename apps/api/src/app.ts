@@ -10,6 +10,8 @@ import { AppError } from "./lib/errors";
 import { TokenService, makeRequireVerified } from "./lib/auth";
 import { LocalStorage, type Storage } from "./lib/storage";
 import { VideoProcessor } from "./services/video";
+import { createScanner, type MediaScanner } from "./services/screening";
+import { StaffTokens, type StaffRole } from "./lib/staff";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
 import postRoutes from "./routes/posts";
@@ -21,6 +23,8 @@ import messageRoutes from "./routes/messages";
 import listRoutes from "./routes/lists";
 import safetyRoutes from "./routes/safety";
 import settingsRoutes from "./routes/settings";
+import moderationRoutes from "./routes/moderation";
+import adminRoutes from "./routes/admin";
 
 export interface AppCtx {
   sql: Sql;
@@ -28,6 +32,8 @@ export interface AppCtx {
   storage: Storage;
   tokens: TokenService;
   video: VideoProcessor;
+  scanner: MediaScanner;
+  staffTokens: StaffTokens;
   /** preHandler for every write endpoint (auth + future KYC gate). */
   requireVerified: preHandlerHookHandler;
 }
@@ -38,7 +44,17 @@ declare module "fastify" {
   }
 }
 
-export async function buildApp(cfg: Config, sql: Sql, opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
+/** Writes a suspended (read-only) account may still make: appeal, acknowledge notices, sign out, telemetry. */
+const SUSPENDED_WRITES = [/^\/v1\/me\/appeals$/, /^\/v1\/me\/moderation-notices\/read$/, /^\/v1\/auth\/logout$/, /^\/v1\/events$/];
+/** Frozen accounts (under compliance review) may only sign out. */
+const FROZEN_WRITES = [/^\/v1\/auth\/logout$/, /^\/v1\/events$/];
+const allowed = (list: RegExp[], url: string) => list.some((r) => r.test(url.split("?")[0]!));
+
+export async function buildApp(
+  cfg: Config,
+  sql: Sql,
+  opts: { logger?: boolean; scanner?: MediaScanner } = {},
+): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? false,
     bodyLimit: 1024 * 1024,
@@ -47,17 +63,21 @@ export async function buildApp(cfg: Config, sql: Sql, opts: { logger?: boolean }
 
   fs.mkdirSync(cfg.uploadDir, { recursive: true });
   const storage = new LocalStorage(cfg.uploadDir, cfg.publicBaseUrl);
+  const scanner = opts.scanner ?? createScanner(cfg.isProd);
   const ctx: AppCtx = {
     sql,
     cfg,
     storage,
     tokens: new TokenService(cfg),
-    video: new VideoProcessor(sql, storage),
+    video: new VideoProcessor(sql, storage, scanner),
+    scanner,
+    staffTokens: new StaffTokens(cfg),
     requireVerified: makeRequireVerified(cfg) as preHandlerHookHandler,
   };
   app.decorate("ctx", ctx);
   await ctx.video.recover();
   app.decorateRequest("user", null);
+  app.decorateRequest("staff", null);
 
   await app.register(cors, { origin: true });
   await app.register(multipart, { limits: { fileSize: cfg.maxMediaBytes, files: 1 } });
@@ -74,16 +94,40 @@ export async function buildApp(cfg: Config, sql: Sql, opts: { logger?: boolean }
   app.addHook("onRequest", async (req) => {
     const header = req.headers.authorization;
     if (!header?.startsWith("Bearer ")) return;
-    const claims = await ctx.tokens.verifyAccess(header.slice(7));
+    const token = header.slice(7);
+
+    // Moderation console: separate token type, separate table.
+    if (req.url.startsWith("/admin/")) {
+      const staffId = await ctx.staffTokens.verify(token);
+      if (!staffId) throw new AppError(401, "TOKEN_INVALID", "Session expired. Sign in again.");
+      const [st] = await sql<{ id: string; role: StaffRole; display_name: string; status: string }[]>`
+        SELECT id, role, display_name, status FROM staff WHERE id = ${staffId}`;
+      if (!st || st.status !== "active") throw new AppError(401, "ACCOUNT_UNAVAILABLE", "Staff account disabled");
+      req.staff = { id: st.id, role: st.role, displayName: st.display_name };
+      return;
+    }
+
+    const claims = await ctx.tokens.verifyAccess(token);
     if (!claims) throw new AppError(401, "TOKEN_INVALID", "Access token invalid or expired");
-    const [u] = await sql<{ status: string; kyc_level: number }[]>`SELECT status, kyc_level FROM users WHERE id = ${claims.id}`;
-    if (!u || u.status === "deleted" || u.status === "suspended") {
+    const [u] = await sql<{ status: string; kyc_level: number; suspended_until: Date | null }[]>`
+      SELECT status, kyc_level, suspended_until FROM users WHERE id = ${claims.id}`;
+    if (!u || u.status === "deleted" || u.status === "banned") {
       throw new AppError(401, "ACCOUNT_UNAVAILABLE", "This account is unavailable");
     }
-    if (u.status === "frozen" && req.method !== "GET") {
-      throw new AppError(403, "ACCOUNT_UNDER_REVIEW", "Account under review");
+    if (u.status === "suspended" && u.suspended_until && u.suspended_until <= new Date()) {
+      // Timed suspension has lapsed: reinstate lazily on the next request.
+      await sql`UPDATE users SET status = 'active', suspended_until = NULL WHERE id = ${claims.id} AND status = 'suspended'`;
+      u.status = "active";
     }
-    req.user = { id: claims.id, kycLevel: u.kyc_level };
+    if (req.method !== "GET") {
+      if (u.status === "suspended" && !allowed(SUSPENDED_WRITES, req.url)) {
+        throw new AppError(403, "ACCOUNT_SUSPENDED", "Your account is suspended and read-only. See Settings → Account status.");
+      }
+      if (u.status === "frozen" && !allowed(FROZEN_WRITES, req.url)) {
+        throw new AppError(403, "ACCOUNT_UNDER_REVIEW", "Account under review");
+      }
+    }
+    req.user = { id: claims.id, kycLevel: u.kyc_level, status: u.status };
   });
 
   app.setErrorHandler((err, req, reply) => {
@@ -117,6 +161,8 @@ export async function buildApp(cfg: Config, sql: Sql, opts: { logger?: boolean }
   await app.register(listRoutes, { prefix: "/v1" });
   await app.register(safetyRoutes, { prefix: "/v1" });
   await app.register(settingsRoutes, { prefix: "/v1" });
+  await app.register(moderationRoutes, { prefix: "/v1" });
+  await app.register(adminRoutes, { prefix: "/admin/v1" });
 
   return app;
 }

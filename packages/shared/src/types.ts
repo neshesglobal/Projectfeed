@@ -90,7 +90,9 @@ export interface Post {
   counts: PostCounts;
   viewer: PostViewerState;
   deleted: boolean;
-  unavailable?: "deleted" | "protected" | "blocked";
+  /** Media is behind a sensitive-content interstitial (moderator label). */
+  sensitive?: boolean;
+  unavailable?: "deleted" | "removed" | "suspended" | "protected" | "blocked";
 }
 
 export interface FeedItem {
@@ -175,4 +177,44 @@ export interface UserList {
 
 export interface ApiError {
   error: { code: string; message: string; details?: unknown };
+}
+
+export type ModerationActionType =
+  | "remove_post"
+  | "restore_post"
+  | "label_sensitive"
+  | "unlabel_sensitive"
+  | "limit_reach"
+  | "unlimit_reach"
+  | "warn"
+  | "suspend"
+  | "unsuspend"
+  | "freeze"
+  | "unfreeze"
+  | "ban"
+  | "unban";
+
+/** A statement of reasons sent to a user about a moderation decision (UK OSA / EU DSA Art. 17 style). */
+export interface ModerationNotice {
+  id: string;
+  actionId: string;
+  action: ModerationActionType;
+  reasonCode: string;
+  statement: string;
+  /** Excerpt of the affected post, when the decision was about a post. */
+  postExcerpt: string | null;
+  postId: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  read: boolean;
+  appeal: { status: "open" | "upheld" | "overturned"; decisionNote: string | null } | null;
+  canAppeal: boolean;
+}
+
+export interface AccountStanding {
+  status: "active" | "suspended" | "frozen";
+  suspendedUntil: string | null;
+  strikes: number;
+  notices: ModerationNotice[];
+  unread: number;
 }

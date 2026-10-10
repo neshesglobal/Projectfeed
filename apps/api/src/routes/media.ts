@@ -9,6 +9,7 @@ import { AppError, badRequest, notFound } from "../lib/errors";
 import { isId, newId } from "../lib/ids";
 import { MEDIA_COLUMNS, toMedia, type MediaRow } from "../services/hydrate";
 import { MAX_VIDEO_BYTES, VIDEO_TYPES } from "../services/video";
+import { recordScan } from "../services/screening";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
 const MAX_DIMENSION = 2048;
@@ -30,7 +31,7 @@ async function bufferWithLimit(stream: Readable, max: number): Promise<Buffer> {
 }
 
 const mediaRoutes: FastifyPluginAsync = async (app) => {
-  const { sql, storage, requireVerified, cfg, video } = app.ctx;
+  const { sql, storage, requireVerified, cfg, video, scanner } = app.ctx;
   const hctx = { db: sql, storage };
   fs.mkdirSync(storage.tmpDir(), { recursive: true });
 
@@ -92,7 +93,20 @@ const mediaRoutes: FastifyPluginAsync = async (app) => {
     } catch {
       throw badRequest("Could not process image");
     }
-    // Hook: CSAM hash-matching (PhotoDNA / IWF list) must run here before anything is stored. See DEV_PLAN §M6.
+    // Screen against known-abuse hash lists BEFORE anything reaches storage. Fail closed if the scanner is down.
+    let scan;
+    try {
+      scan = await scanner.scan({ original: input, frames: [input] });
+    } catch (e) {
+      req.log.error(e);
+      throw new AppError(503, "SCREENING_UNAVAILABLE", "Uploads are temporarily unavailable. Please try again shortly.");
+    }
+    if (scan.match) {
+      await sql`INSERT INTO media (id, owner_id, type, storage_key, thumb_key, width, height, status)
+                VALUES (${id}, ${me.id}, ${animated ? "gif" : "image"}, '', '', 0, 0, 'quarantined')`;
+      await recordScan(sql, { id, ownerId: me.id }, scan);
+      throw new AppError(422, "UPLOAD_REJECTED", "This file can't be uploaded.");
+    }
 
     const key = `${me.id}/${id}.webp`;
     const thumbKey = `${me.id}/${id}_thumb.webp`;
@@ -104,6 +118,7 @@ const mediaRoutes: FastifyPluginAsync = async (app) => {
       VALUES (${id}, ${me.id}, ${animated ? "gif" : "image"}, ${key}, ${thumbKey}, ${full.info.width}, ${height}, ${altText},
               ${full.data.length}, now())
       RETURNING ${sql.unsafe(MEDIA_COLUMNS)}`;
+    await recordScan(sql, { id, ownerId: me.id }, scan);
     reply.status(201);
     return toMedia(hctx, row!);
   });

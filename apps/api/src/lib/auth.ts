@@ -10,6 +10,8 @@ import { newId } from "./ids";
 export interface AuthUser {
   id: string;
   kycLevel: number;
+  /** Account status, set by the request hook (active, suspended or frozen). */
+  status?: string;
 }
 
 declare module "fastify" {
@@ -75,7 +77,7 @@ export class TokenService {
     }
     if (row.expires_at < new Date()) throw unauthorized("Refresh token expired");
     const [user] = await db<{ status: string }[]>`SELECT status FROM users WHERE id = ${row.user_id}`;
-    if (!user || user.status === "deleted" || user.status === "suspended") throw unauthorized("Account unavailable");
+    if (!user || user.status === "deleted" || user.status === "banned") throw unauthorized("Account unavailable");
     // Conditional update makes concurrent rotations of the same token safe: only one wins.
     const updated = await db`UPDATE refresh_tokens SET revoked_at = now() WHERE id = ${row.id} AND revoked_at IS NULL`;
     if (updated.count === 0) throw unauthorized("Refresh token already used");

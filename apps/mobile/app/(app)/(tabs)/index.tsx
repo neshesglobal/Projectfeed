@@ -12,6 +12,7 @@ import { Feed } from "../../../src/components/Feed";
 import { TabHeader } from "../../../src/components/HomeHeader";
 import { Glass } from "../../../src/components/glass";
 import { Button, EmptyState, IconButton, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { StandingBanner } from "../../../src/components/StandingBanner";
 import { WelcomeHero } from "../../../src/components/WelcomeHero";
 import { useAuth } from "../../../src/store/auth";
 import { usePrefs } from "../../../src/store/prefs";
@@ -85,7 +86,12 @@ export default function Home() {
             ref={feedRef as never}
             query={active}
             surface={activeTab}
-            header={activeTab === "for-you" && !heroDismissed && (me?.followingCount ?? 0) < 5 ? <WelcomeHero /> : null}
+            header={
+              <>
+                <StandingBanner />
+                {activeTab === "for-you" && !heroDismissed && (me?.followingCount ?? 0) < 5 ? <WelcomeHero /> : null}
+              </>
+            }
             empty={
               activeTab === "following" ? (
                 <EmptyState

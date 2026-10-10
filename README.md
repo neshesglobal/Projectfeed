@@ -23,9 +23,11 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 | Notifications | Grouped ("A and 3 others liked…"), All / Verified / Mentions tabs, unread badges |
 | Search | Posts (Top/Latest/Media, operators `from:`, `filter:media`, `min_faves:`), people, typeahead, trends counted by distinct authors |
 | Messages | 1:1 and group DMs, message requests from non-followers, images, shared posts, edit/delete, read state |
-| Safety | Report posts/users/messages (OSA-aligned categories with priority queue), block/mute everywhere, suspended/frozen account handling, KYC gate (`KYC_ENFORCED`) |
+| Safety | Report posts/users/messages (OSA-aligned categories with priority queue), block/mute everywhere, KYC gate (`KYC_ENFORCED`) |
+| Moderation | **Trust & Safety console** (`apps/admin`): priority report queue, public content and latest-uploads browsing, account lookup, remove/restore, sensitive labels, reach limits, warnings, suspensions (read-only), bans, appeals reviewed by a different moderator, five staff roles, **tiered access** to protected posts and DMs with a typed justification, and an **append-only access log**. Users get a statement of reasons and can appeal from **Settings → Account status**. See `docs/MODERATION.md` |
+| Upload screening | Every photo and sampled video keyframe is hash-matched **before storage**; a match is quarantined (never stored), the account is frozen silently and a P0 report goes to compliance. Pluggable scanner (local hash list for development; PhotoDNA adapter stub) |
 | Event log | Impressions, dwell, clicks: the training data for the future ML ranker |
-| Design | **Liquid Glass** language (see below); Midnight and Daylight themes; accessibility labels |
+| Design | **Liquid Glass** language (see below); Midnight, Dark and Daylight themes; accessibility labels |
 
 Screenshots (web build of the same app) are in `docs/screenshots/`.
 
@@ -55,6 +57,7 @@ Screenshots are in `docs/screenshots/liquid-glass/`.
 ```
 apps/api       Fastify + PostgreSQL REST API (TypeScript), integration tests
 apps/mobile    Expo / React Native app (iOS, Android; web for development)
+apps/admin     Trust & Safety console (Vite + React), staff only
 packages/shared  Shared zod schemas, API types and text rules (character counting, entities)
 docs/          Plans and screenshots
 ```
@@ -72,7 +75,7 @@ cp apps/api/.env.example apps/api/.env          # adjust DATABASE_URL if needed
 
 # API (runs migrations on start), then demo data
 pnpm --filter @projectfeed/api dev
-pnpm --filter @projectfeed/api seed             # demo users, posts and reels (needs ffmpeg); login: demo / projectfeed-demo
+pnpm --filter @projectfeed/api seed             # demo users, posts, reels and a moderation queue (needs ffmpeg); login: demo / projectfeed-demo
 
 # App
 pnpm --filter @projectfeed/mobile start         # press i (iOS simulator), a (Android emulator) or w (web)
@@ -82,21 +85,38 @@ On a physical phone, point the app at your machine's LAN address:
 `EXPO_PUBLIC_API_URL=http://192.168.x.x:4000 pnpm --filter @projectfeed/mobile start`.
 The Android emulator reaches `localhost` automatically via `10.0.2.2`.
 
+Moderation console (proxies to the API on port 4000):
+
+```bash
+pnpm --filter @projectfeed/admin dev            # http://localhost:5175
+```
+
+The seed creates one staff account per role, all with the password `projectfeed-staff`:
+`support@`, `moderator@`, `senior@`, `compliance@` and `admin@staff.projectfeed.app`. Local development only.
+
 ### Tests and checks
 
 ```bash
 createdb projectfeed_test
-pnpm --filter @projectfeed/api test        # 52 integration tests against a real Postgres (and real ffmpeg)
-pnpm typecheck                              # API, shared and mobile
+pnpm --filter @projectfeed/api test        # 70 integration tests against a real Postgres (and real ffmpeg)
+pnpm typecheck                              # API, shared, mobile and admin
 ```
 
 ## Not built yet (by design)
 
 - **KYC vendor flow** (Sumsub/Veriff SDK, webhooks, review queue). The `kyc_level` column, badge and `KYC_ENFORCED` gate are already in place.
 - **Adaptive streaming**: video is a single 720p MP4 today; production should use a managed transcoder (Mux or Cloudflare Stream) for HLS adaptive bitrate. The media `status` contract stays the same.
-- **Push notifications** (APNs/FCM), **WebSocket** delivery for DMs (the app polls for now), **S3** storage (local disk adapter today), **CSAM hash-matching** (the hook point is marked in `routes/media.ts`) and an **admin moderation console**.
+- **Push notifications** (APNs/FCM), **WebSocket** delivery for DMs (the app polls for now) and **S3** storage (local disk adapter today).
+- **A production hash-matching provider.** The screening pipeline is built and tested, but against a local hash list of benign test images. Real known-CSAM matching needs PhotoDNA (via IWF or NCMEC membership) or Thorn Safer under a signed agreement.
+- **AI classifiers** for unknown abusive imagery, nudity, violence and spam. These plug into the same scanner interface.
+- **Staff 2FA/SSO and IP allow-listing** for the console (password-only today).
 - **AI features and ML ranking.** The Feed Mixer's stages are the seams for these.
 
 ### Must be in place before a public launch
 
-The CSAM hash-matching and the Online Safety Act duties (risk assessment, age assurance via KYC, complaints process) must be in place before any public launch. See `docs/DEV_PLAN.md` §9.
+- A production hash-matching provider and the NCA reporting process.
+- The Online Safety Act duties: illegal-content and children's risk assessments, age assurance (via KYC), and a complaints process. The appeals flow covers part of the complaints process.
+- A privacy policy that discloses moderator access (see `docs/MODERATION.md` §7).
+- Staff 2FA.
+
+See `docs/DEV_PLAN.md` §9.

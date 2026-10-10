@@ -52,7 +52,8 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       throw unauthorized("Incorrect email/handle or password");
     }
     if (!(await verifyPassword(u.password_hash, input.password))) throw unauthorized("Incorrect email/handle or password");
-    if (u.status === "deleted" || u.status === "suspended") throw unauthorized("This account is unavailable");
+    // Suspended accounts may sign in (read-only, so they can read the notice and appeal); banned ones may not.
+    if (u.status === "deleted" || u.status === "banned") throw unauthorized("This account is unavailable");
     return session(u.id, null, req.headers["user-agent"]);
   });
 
