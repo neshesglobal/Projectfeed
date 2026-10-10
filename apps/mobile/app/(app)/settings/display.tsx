@@ -16,6 +16,8 @@ export default function Display() {
   const pref = usePrefs((s) => s.theme);
   const setTheme = usePrefs((s) => s.setTheme);
   const current = pref === "dim" ? "dark" : pref;
+  const density = usePrefs((s) => s.density);
+  const setDensity = usePrefs((s) => s.setDensity);
   return (
     <Screen>
       <Header title="Appearance" />
@@ -49,6 +51,40 @@ export default function Display() {
               </Text>
             </View>
             {current === o.key ? <Ionicons name="checkmark-circle" size={22} color={t.accent} /> : <Ionicons name="ellipse-outline" size={22} color={t.textMuted} />}
+          </Pressable>
+        ))}
+      </Group>
+      <Text muted size="sm" weight="600" style={{ marginLeft: space.xl, marginTop: space.xl, marginBottom: space.sm }}>
+        FEED DENSITY
+      </Text>
+      <Group>
+        {(
+          [
+            ["compact", "Compact", "More posts per screen"],
+            ["comfortable", "Comfortable", "Roomier cards, repost labels as pills, view counts"],
+          ] as const
+        ).map(([key, label, body], i) => (
+          <Pressable
+            key={key}
+            onPress={() => setDensity(key)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: density === key }}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              padding: space.lg,
+              backgroundColor: pressed ? t.cardPressed : "transparent",
+              borderTopWidth: i ? 1 : 0,
+              borderTopColor: t.border,
+            })}
+          >
+            <View style={{ flex: 1 }}>
+              <Text weight="600">{label}</Text>
+              <Text muted size="sm">
+                {body}
+              </Text>
+            </View>
+            {density === key ? <Ionicons name="checkmark-circle" size={22} color={t.accent} /> : <Ionicons name="ellipse-outline" size={22} color={t.textMuted} />}
           </Pressable>
         ))}
       </Group>

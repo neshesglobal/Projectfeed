@@ -15,6 +15,7 @@ import {
 } from "../api/hooks";
 import { track } from "../lib/events";
 import { useAuth } from "../store/auth";
+import { usePrefs } from "../store/prefs";
 import { space, useTheme, radius } from "../theme";
 import { MediaGrid } from "./MediaGrid";
 import { PollView } from "./PollView";
@@ -49,7 +50,9 @@ function ActionButton({
   label,
   onPress,
   onLongPress,
+  compact,
 }: {
+  compact?: boolean;
   icon: React.ComponentProps<typeof Ionicons>["name"];
   count?: number;
   color: string;
@@ -73,13 +76,13 @@ function ActionButton({
         alignItems: "center",
         gap: 5,
         paddingHorizontal: 10,
-        paddingVertical: 6,
+        paddingVertical: compact ? 4 : 6,
         borderRadius: radius.pill,
         backgroundColor: active ? `${color}22` : pressed ? t.cardPressed : "transparent",
         transform: [{ scale: pressed ? 0.94 : 1 }],
       })}
     >
-      <Ionicons name={icon} size={18} color={c} />
+      <Ionicons name={icon} size={compact ? 16 : 18} color={c} />
       {count !== undefined && count > 0 ? (
         <Text size="sm" style={{ color: c }}>
           {formatCount(count)}
@@ -89,8 +92,9 @@ function ActionButton({
   );
 }
 
-export function PostActions({ post, large }: { post: Post; large?: boolean }) {
+export function PostActions({ post, large, compact }: { post: Post; large?: boolean; compact?: boolean }) {
   const t = useTheme();
+  const c = compact && !large;
   const like = useToggleLike();
   const repost = useToggleRepost();
   const bookmark = useToggleBookmark();
@@ -109,8 +113,9 @@ export function PostActions({ post, large }: { post: Post; large?: boolean }) {
   };
 
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: large ? space.md : space.sm, marginHorizontal: -10 }}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: large ? space.md : c ? 6 : space.sm, marginBottom: c ? -4 : 0, marginHorizontal: -10 }}>
       <ActionButton
+        compact={c}
         icon="chatbubble-outline"
         label="Reply"
         count={post.counts.replies}
@@ -121,12 +126,12 @@ export function PostActions({ post, large }: { post: Post; large?: boolean }) {
             : toast("Only some accounts can reply to this post")
         }
       />
-      <ActionButton icon="repeat" label="Repost" count={post.counts.reposts + post.counts.quotes} color={t.repost} active={post.viewer.reposted} onPress={onRepost} />
-      <ActionButton icon={post.viewer.liked ? "heart" : "heart-outline"} label="Like" count={post.counts.likes} color={t.like} active={post.viewer.liked} onPress={() => like.mutate(post)} />
-      <ActionButton icon="stats-chart" label="Views" count={post.counts.views} color={t.textMuted} />
+      <ActionButton compact={c} icon="repeat" label="Repost" count={post.counts.reposts + post.counts.quotes} color={t.repost} active={post.viewer.reposted} onPress={onRepost} />
+      <ActionButton compact={c} icon={post.viewer.liked ? "heart" : "heart-outline"} label="Like" count={post.counts.likes} color={t.like} active={post.viewer.liked} onPress={() => like.mutate(post)} />
+      {c ? null : <ActionButton icon="stats-chart" label="Views" count={post.counts.views} color={t.textMuted} />}
       <View style={{ flexDirection: "row" }}>
-        <ActionButton icon={post.viewer.bookmarked ? "bookmark" : "bookmark-outline"} label="Bookmark" color={t.accent} active={post.viewer.bookmarked} onPress={() => bookmark.mutate(post)} />
-        <ActionButton icon="share-outline" label="Share" color={t.textMuted} onPress={onShare} />
+        <ActionButton compact={c} icon={post.viewer.bookmarked ? "bookmark" : "bookmark-outline"} label="Bookmark" color={t.accent} active={post.viewer.bookmarked} onPress={() => bookmark.mutate(post)} />
+        <ActionButton compact={c} icon="share-outline" label="Share" color={t.textMuted} onPress={onShare} />
       </View>
     </View>
   );
@@ -253,6 +258,7 @@ export const PostCard = memo(function PostCard({
   surface?: string;
 }) {
   const t = useTheme();
+  const compact = usePrefs((st) => st.density) === "compact";
   const menu = usePostMenu();
   const goProfile = () => {
     track({ type: "click_profile", postId: post.id, surface });
@@ -263,39 +269,57 @@ export const PostCard = memo(function PostCard({
     router.push(`/post/${post.id}`);
   };
 
+  // Compact: social context folds into the meta line, smaller avatar, tighter padding (~4 text posts per screen).
+  const context = pinned ? "Pinned" : repostedBy ? `${repostedBy.displayName} reposted` : reason ?? null;
+  const contextIcon: React.ComponentProps<typeof Ionicons>["name"] = pinned ? "pin" : repostedBy ? "repeat" : "sparkles";
+  // Inline label for compact mode: the icon carries the verb, so a repost shows just the reposter's first name.
+  const shortContext = pinned ? "Pinned" : repostedBy ? repostedBy.displayName.split(" ")[0] : reason ?? "";
+
   return (
-    <View style={{ paddingHorizontal: space.md, paddingTop: threadLineAbove ? 0 : space.sm }}>
-      <Card onPress={goPost} accessibilityHint="Opens the post" style={{ borderRadius: radius.xl }}>
-        {pinned ? <SocialContext icon="pin" text="Pinned" /> : null}
-        {repostedBy ? <SocialContext icon="repeat" text={`${repostedBy.displayName} reposted`} /> : null}
-        {!repostedBy && reason ? <SocialContext icon="sparkles" text={reason} /> : null}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          <Avatar user={post.author} size={44} onPress={goProfile} />
+    <View style={{ paddingHorizontal: space.md, paddingTop: threadLineAbove ? 0 : compact ? 6 : space.sm }}>
+      <Card onPress={goPost} accessibilityHint="Opens the post" padding={compact ? 14 : space.lg} style={{ borderRadius: compact ? radius.lg : radius.xl }}>
+        {!compact && context ? <SocialContext icon={contextIcon} text={context} /> : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: compact ? 10 : space.md }}>
+          <Avatar user={post.author} size={compact ? 38 : 44} onPress={goProfile} />
           <View style={{ flex: 1 }}>
             <NameLine user={post.author} onPress={goProfile} />
-            <Text muted size="sm" numberOfLines={1}>
-              @{post.author.handle} · {formatRelativeTime(post.createdAt)}
-              {post.editedAt ? " · Edited" : ""}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              {/* The handle gives way first; the time never truncates. */}
+              <Text muted size="sm" numberOfLines={1} style={{ flexShrink: 1 }}>
+                @{post.author.handle}
+              </Text>
+              <Text muted size="sm" style={{ flexShrink: 0 }}>
+                · {formatRelativeTime(post.createdAt)}
+                {post.editedAt ? " · Edited" : ""}
+              </Text>
+              {compact && context ? (
+                <View accessibilityLabel={context} style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 2, marginLeft: 2 }}>
+                  <Ionicons name={contextIcon} size={12} color={t.accent} />
+                  <Text size="sm" weight="600" numberOfLines={1} style={{ color: t.accent, flexShrink: 1 }}>
+                    {shortContext}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
           <Pressable onPress={() => menu(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel="More options" style={{ padding: 4 }}>
             <Ionicons name="ellipsis-horizontal" size={18} color={t.textMuted} />
           </Pressable>
         </View>
         {post.replyTo ? (
-          <Text muted size="sm" style={{ marginTop: space.sm }}>
+          <Text muted size="sm" style={{ marginTop: compact ? 6 : space.sm }}>
             Replying to <Text size="sm" weight="600" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
           </Text>
         ) : null}
         {post.text ? (
-          <View style={{ marginTop: space.sm }}>
+          <View style={{ marginTop: compact ? 6 : space.sm }}>
             <RichText text={post.text} postId={post.id} />
           </View>
         ) : null}
         <MediaGrid media={post.media} postId={post.id} surface={surface} />
         {post.poll ? <PollView post={post} /> : null}
         {post.quote ? <QuotedPost post={post.quote} /> : null}
-        <PostActions post={post} />
+        <PostActions post={post} compact={compact} />
       </Card>
       {threadLineBelow ? <View style={{ width: 2, height: space.md, marginLeft: space.lg + 21, backgroundColor: t.accent, opacity: 0.45, borderRadius: 1 }} /> : null}
     </View>
