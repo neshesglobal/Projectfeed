@@ -35,7 +35,7 @@ export default function Settings() {
         <Row icon="shield-checkmark-outline" title="Verification" body="Identity verification status" path="/settings/verification" />
         <Row icon="lock-closed-outline" title="Privacy and safety" body="Protected posts, blocked and muted accounts" path="/settings/privacy" />
         <Row icon="volume-mute-outline" title="Muted words" body="Hide posts containing words, #hashtags or $cashtags" path="/settings/muted-words" />
-        <Row icon="color-palette-outline" title="Appearance" body="Midnight or Daylight glass" path="/settings/display" />
+        <Row icon="color-palette-outline" title="Appearance" body="Midnight, Dark or Daylight · feed density" path="/settings/display" />
         <Row icon="information-circle-outline" title="About" body="Terms, privacy policy, version" path="/settings/about" />
         </Group>
       </ScrollView>

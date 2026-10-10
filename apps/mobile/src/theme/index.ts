@@ -11,7 +11,12 @@ import { usePrefs, type ThemePref } from "../store/prefs";
  *                   top bars, sheets, search and buttons — content visibly flows underneath.
  * Accent is violet; gold is reserved for the ID-verified badge (trust signal).
  */
+export type ThemeName = "midnight" | "dark" | "light";
+
 export interface Theme {
+  /** Which palette this is (for previews and analytics). */
+  name: ThemeName;
+  /** Luminance family: drives blur tint, shadows and status-bar style. */
   mode: "light" | "dark";
   /** Solid base colour behind the gradient (also used where a solid surface is required). */
   bg: string;
@@ -45,8 +50,10 @@ export interface Theme {
   statusBar: "light" | "dark";
 }
 
-export const themes: Record<Theme["mode"], Theme> = {
-  dark: {
+export const themes: Record<ThemeName, Theme> = {
+  /** Midnight: deep violet glass — the signature look. */
+  midnight: {
+    name: "midnight",
     mode: "dark",
     bg: "#0A0911",
     gradient: ["#34186E", "#170E33", "#0A0911"],
@@ -76,7 +83,44 @@ export const themes: Record<Theme["mode"], Theme> = {
     overlay: "rgba(5, 3, 15, 0.55)",
     statusBar: "light",
   },
+  /**
+   * Dark: true dark mode — near-black, neutral graphite glass, violet only as an accent.
+   * Easier on the eyes at night and saves battery on OLED screens.
+   */
+  dark: {
+    name: "dark",
+    mode: "dark",
+    bg: "#000000",
+    gradient: ["#0E0E13", "#060608", "#000000"],
+    orbA: "rgba(124, 58, 237, 0.10)",
+    orbB: "rgba(255, 255, 255, 0.025)",
+    bgElevated: "rgba(255,255,255,0.07)",
+    bgInput: "rgba(255,255,255,0.08)",
+    card: "rgba(255,255,255,0.045)",
+    cardBorder: "rgba(255,255,255,0.085)",
+    cardPressed: "rgba(255,255,255,0.085)",
+    glassTint: "rgba(16, 16, 20, 0.72)",
+    glassBorder: "rgba(255,255,255,0.12)",
+    glassHighlight: "rgba(255,255,255,0.22)",
+    blurTint: "systemChromeMaterialDark",
+    text: "#F2F2F5",
+    textMuted: "rgba(235, 235, 245, 0.6)",
+    border: "rgba(255,255,255,0.08)",
+    accent: "#A78BFA",
+    accentSoft: "rgba(167, 139, 250, 0.14)",
+    accentGradient: ["#A78BFA", "#7C3AED"],
+    accentText: "#FFFFFF",
+    verified: "#F2C14E",
+    like: "#FF4D8D",
+    repost: "#34D399",
+    danger: "#FF5A6A",
+    success: "#34D399",
+    overlay: "rgba(0, 0, 0, 0.62)",
+    statusBar: "light",
+  },
+  /** Daylight: soft lavender glass. */
   light: {
+    name: "light",
     mode: "light",
     bg: "#F6F4FC",
     gradient: ["#E4D7FF", "#EFE9FF", "#F7F6FC"],
@@ -108,16 +152,19 @@ export const themes: Record<Theme["mode"], Theme> = {
   },
 };
 
-export function resolveTheme(pref: ThemePref, system: "light" | "dark" | null | undefined): Theme {
+export function resolveTheme(pref: ThemePref, system: "light" | "dark" | null | undefined, autoDark: ThemeName = "midnight"): Theme {
   if (pref === "light") return themes.light;
-  if (pref === "dark" || pref === "dim") return themes.dark;
-  return system === "light" ? themes.light : themes.dark;
+  if (pref === "black") return themes.dark;
+  if (pref === "dark" || pref === "dim") return themes.midnight;
+  // Automatic: Daylight by day, and the user's chosen dark style at night.
+  return system === "light" ? themes.light : themes[autoDark === "light" ? "midnight" : autoDark];
 }
 
 export function useTheme(): Theme {
   const pref = usePrefs((s) => s.theme);
+  const autoDark = usePrefs((s) => s.autoDark);
   const system = useColorScheme();
-  return resolveTheme(pref, system === "unspecified" ? null : system);
+  return resolveTheme(pref, system === "unspecified" ? null : system, autoDark);
 }
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;

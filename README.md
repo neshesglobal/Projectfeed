@@ -33,7 +33,11 @@ Screenshots (web build of the same app) are in `docs/screenshots/`.
 
 Inspired by Apple's Liquid Glass, and deliberately unlike X's flat black-and-white list:
 
-- **Backdrop:** a deep violet gradient with soft light orbs (Midnight), or soft lavender (Daylight).
+- **Three themes** (Settings → Appearance, with live previews):
+  - **Midnight:** deep violet gradient with soft light orbs.
+  - **Dark:** true dark mode, near-black with neutral graphite glass and violet only for accents. Easier on the eyes at night and OLED-friendly.
+  - **Daylight:** soft lavender.
+  - **Automatic** (default) follows the device: Daylight by day, and at night the user's choice of Midnight or Dark.
 - **Chrome is real glass:** the floating capsule tab bar, search capsule, top-bar buttons, bottom sheets, toasts, the composer toolbar and the account panel.
   - iOS 26+: Apple's native Liquid Glass (`expo-glass-effect`).
   - Older iOS and web: system blur.
