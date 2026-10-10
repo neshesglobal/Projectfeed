@@ -7,10 +7,12 @@ import { formatRelativeTime, type Conversation } from "@projectfeed/shared";
 import { useConversations } from "../../../src/api/hooks";
 import { Fab } from "../../../src/components/Fab";
 import { TabHeader } from "../../../src/components/HomeHeader";
-import { Avatar, Button, EmptyState, Loading, NameLine, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { Card } from "../../../src/components/glass";
+import { Avatar, Button, EmptyState, IconButton, Loading, NameLine, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../src/store/auth";
 import { conversationTitle } from "../../../src/lib/format";
-import { space, useTheme } from "../../../src/theme";
+import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
 
 function ConversationRow({ c }: { c: Conversation }) {
   const t = useTheme();
@@ -23,7 +25,8 @@ function ConversationRow({ c }: { c: Conversation }) {
       : `${last.sender.id === me?.id ? "You: " : ""}${last.text || (last.sharedPost ? "Shared a post" : "Sent a photo")}`
     : "No messages yet";
   return (
-    <Pressable onPress={() => router.push(`/conversation/${c.id}`)} style={({ pressed }) => ({ flexDirection: "row", gap: space.md, padding: space.lg, backgroundColor: pressed ? t.bgElevated : t.bg })}>
+    <View style={{ paddingHorizontal: space.md, paddingTop: space.sm }}>
+    <Card onPress={() => router.push(`/conversation/${c.id}`)} style={{ flexDirection: "row", gap: space.md, alignItems: "center", borderRadius: radius.xl }}>
       <Avatar user={other} size={48} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
@@ -48,17 +51,19 @@ function ConversationRow({ c }: { c: Conversation }) {
         </Text>
       </View>
       {c.unreadCount > 0 ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.accent, alignSelf: "center" }} /> : null}
-    </Pressable>
+    </Card>
+    </View>
   );
 }
 
 export default function Messages() {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<"inbox" | "requests">("inbox");
   const q = useConversations(tab);
   return (
     <Screen>
-      <TabHeader title="Messages" right={<Ionicons name="create-outline" size={22} color={t.text} onPress={() => router.push("/new-message")} accessibilityLabel="New message" />}>
+      <TabHeader title="Messages" right={<IconButton name="create-outline" glass size={18} label="New message" onPress={() => router.push("/new-message")} />}>
         <TopTabs
           tabs={[
             { key: "inbox", label: "Inbox" },
@@ -70,6 +75,7 @@ export default function Messages() {
       </TabHeader>
       <FlashList
         data={q.data?.items ?? []}
+        contentContainerStyle={{ paddingBottom: tabBarSpace(insets.bottom) + 24 }}
         keyExtractor={(c) => c.id}
         renderItem={({ item }) => <ConversationRow c={item} />}
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={t.accent} />}

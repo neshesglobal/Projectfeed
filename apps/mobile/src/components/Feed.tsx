@@ -4,12 +4,14 @@ import { forwardRef, useCallback, useMemo, useRef, type ReactElement, type React
 import { RefreshControl, View, type ViewToken } from "react-native";
 import type { FeedItem, Page, UserSummary } from "@projectfeed/shared";
 import { errorMessage } from "../api/client";
-import { useFollow } from "../api/hooks";
 import { postHidden, postVisible } from "../lib/events";
 import { usePlayback, videoKey } from "../store/playback";
 import { space, useTheme } from "../theme";
 import { FeedItemCard } from "./PostCard";
-import { Button, Divider, EmptyState, ErrorView, Loading, Text, UserRow } from "./ui";
+import { router } from "expo-router";
+import { SectionTitle } from "./glass";
+import { SuggestionCards } from "./SuggestionCards";
+import { EmptyState, ErrorView, Loading } from "./ui";
 
 type Row = { kind: "post"; item: FeedItem; key: string } | { kind: "suggestions"; users: UserSummary[]; key: string };
 
@@ -23,17 +25,11 @@ interface Props {
 }
 
 function Suggestions({ users }: { users: UserSummary[] }) {
-  const follow = useFollow();
   if (users.length === 0) return null;
   return (
-    <View>
-      <Text weight="800" size="xl" style={{ paddingHorizontal: space.lg, paddingTop: space.md }}>
-        Who to follow
-      </Text>
-      {users.map((u) => (
-        <UserRow key={u.id} user={u} right={<Button title="Follow" variant="secondary" small onPress={() => follow.mutate({ user: u, follow: true })} />} />
-      ))}
-      <Divider />
+    <View style={{ paddingVertical: space.sm }}>
+      <SectionTitle title="Suggested connections" action="See all" onAction={() => router.push("/connect")} />
+      <SuggestionCards users={users} />
     </View>
   );
 }
@@ -89,7 +85,7 @@ export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, 
       // New posts arrive via refresh or the "New posts" pill, which scroll to the top; don't pin the old position.
       maintainVisibleContentPosition={{ disabled: true }}
       ListHeaderComponent={header}
-      contentContainerStyle={{ paddingTop: contentTopInset, paddingBottom: 120 }}
+      contentContainerStyle={{ paddingTop: contentTopInset + space.xs, paddingBottom: 150 }}
       onEndReachedThreshold={0.6}
       onEndReached={() => {
         if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();

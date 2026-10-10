@@ -25,9 +25,25 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 | Messages | 1:1 and group DMs, message requests from non-followers, images, shared posts, edit/delete, read state |
 | Safety | Report posts/users/messages (OSA-aligned categories with priority queue), block/mute everywhere, suspended/frozen account handling, KYC gate (`KYC_ENFORCED`) |
 | Event log | Impressions, dwell, clicks: the training data for the future ML ranker |
-| Design | Light, Dim and Lights-out themes; Neshes gold accent; accessibility labels; X-style layout |
+| Design | **Liquid Glass** language (see below); Midnight and Daylight themes; accessibility labels |
 
 Screenshots (web build of the same app) are in `docs/screenshots/`.
+
+## Design language: Liquid Glass
+
+Inspired by Apple's Liquid Glass, and deliberately unlike X's flat black-and-white list:
+
+- **Backdrop:** a deep violet gradient with soft light orbs (Midnight), or soft lavender (Daylight).
+- **Chrome is real glass:** the floating capsule tab bar, search capsule, top-bar buttons, bottom sheets, toasts, the composer toolbar and the account panel.
+  - iOS 26+: Apple's native Liquid Glass (`expo-glass-effect`).
+  - Older iOS and web: system blur.
+  - Android: a tinted translucent fill, because live blur is costly there.
+- **Content is frosted, not blurred:** posts, trends and suggestion cards are translucent rounded cards with a specular edge. This follows Apple's guidance to keep glass on the navigation layer, and keeps long feeds smooth.
+- **Shapes and type:** large bold titles, concentric radii, pill chips with a glowing violet active state, gradient primary buttons.
+- **Gold is reserved for the ID-verified badge.**
+- **Tokens:** all in `apps/mobile/src/theme/index.ts`; primitives in `src/components/glass.tsx`.
+
+Screenshots are in `docs/screenshots/liquid-glass/`.
 
 ## Repository layout
 

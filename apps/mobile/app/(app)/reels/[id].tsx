@@ -11,7 +11,7 @@ export default function ReelsFromPost() {
     <ReelsViewer
       startId={id}
       bottomInset={insets.bottom}
-      header={<IconButton name="arrow-back" label="Back" color="#fff" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />}
+      header={<IconButton name="chevron-back" glass size={20} label="Back" color="#fff" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />}
     />
   );
 }

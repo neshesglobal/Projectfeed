@@ -13,6 +13,7 @@ import { qs, useFollow, useToggleBookmark, useToggleLike, useToggleRepost } from
 import { postVisible, track } from "../lib/events";
 import { useAuth } from "../store/auth";
 import { usePlayback } from "../store/playback";
+import { Glass } from "./glass";
 import { SHARE_BASE } from "./PostCard";
 import { RichText } from "./RichText";
 import { Avatar, Button, Text, VerifiedBadge } from "./ui";
@@ -23,8 +24,10 @@ const SHADOW = { textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 4, textSh
 
 function RailButton({ icon, label, count, color = WHITE, onPress }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; count?: number; color?: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={6} style={{ alignItems: "center", gap: 2 }}>
-      <Ionicons name={icon} size={32} color={color} style={SHADOW} />
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={6} style={({ pressed }) => ({ alignItems: "center", gap: 4, transform: [{ scale: pressed ? 0.9 : 1 }] })}>
+      <Glass radius={26} tint="rgba(20,14,40,0.35)" style={{ width: 50, height: 50, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icon} size={26} color={color} />
+      </Glass>
       <Text size="xs" weight="700" style={{ color: WHITE, ...SHADOW }}>
         {count !== undefined ? formatCount(count) : label}
       </Text>
@@ -296,8 +299,10 @@ export function ReelsViewer({ startId, bottomInset = 0, header }: { startId?: st
       )}
       <View style={{ position: "absolute", top: insets.top + 6, left: 8, right: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }} pointerEvents="box-none">
         {header ?? <View />}
-        <Pressable onPress={toggleMuted} accessibilityRole="button" accessibilityLabel={muted ? "Unmute" : "Mute"} hitSlop={10} style={{ padding: 8 }}>
-          <Ionicons name={muted ? "volume-mute" : "volume-high"} size={24} color={WHITE} style={SHADOW} />
+        <Pressable onPress={toggleMuted} accessibilityRole="button" accessibilityLabel={muted ? "Unmute" : "Mute"} hitSlop={10}>
+          <Glass radius={22} tint="rgba(20,14,40,0.35)" style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name={muted ? "volume-mute" : "volume-high"} size={20} color={WHITE} />
+          </Glass>
         </Pressable>
       </View>
     </View>

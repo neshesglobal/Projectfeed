@@ -1,10 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import type { ComponentProps, ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
+  StyleSheet,
   Text as RNText,
   TextInput,
   View,
@@ -18,6 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { UserSummary } from "@projectfeed/shared";
 import { font, radius, space, useTheme } from "../theme";
+import { Backdrop, Chip, Glass } from "./glass";
 
 export type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -32,21 +36,34 @@ export function Text({
   return (
     <RNText
       {...rest}
-      style={[{ color: muted ? t.textMuted : t.text, fontSize: font[size], fontWeight: weight ?? "400" }, style]}
+      style={[{ color: muted ? t.textMuted : t.text, fontSize: font[size], fontWeight: weight ?? "400", letterSpacing: size === "title" || size === "xxl" ? -0.5 : 0 }, style]}
     />
   );
 }
 
-export function Screen({ children, style, edges = [] }: { children: ReactNode; style?: StyleProp<ViewStyle>; edges?: ("top" | "bottom")[] }) {
+/** Every screen sits on the ambient gradient backdrop. */
+export function Screen({
+  children,
+  style,
+  edges = [],
+  plain,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  edges?: ("top" | "bottom")[];
+  /** Solid black, for media surfaces (Reels, viewers). */
+  plain?: boolean;
+}) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View
       style={[
-        { flex: 1, backgroundColor: t.bg, paddingTop: edges.includes("top") ? insets.top : 0, paddingBottom: edges.includes("bottom") ? insets.bottom : 0 },
+        { flex: 1, backgroundColor: plain ? "#000" : t.bg, paddingTop: edges.includes("top") ? insets.top : 0, paddingBottom: edges.includes("bottom") ? insets.bottom : 0 },
         style,
       ]}
     >
+      {plain ? null : <Backdrop />}
       {children}
     </View>
   );
@@ -54,26 +71,23 @@ export function Screen({ children, style, edges = [] }: { children: ReactNode; s
 
 export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
   const t = useTheme();
-  return <View style={[{ height: 1, backgroundColor: t.border }, style]} />;
+  return <View style={[{ height: StyleSheet.hairlineWidth * 2, backgroundColor: t.border }, style]} />;
 }
 
 export function Avatar({ user, size = 40, onPress }: { user: Pick<UserSummary, "avatarUrl" | "displayName" | "handle"> | null; size?: number; onPress?: () => void }) {
   const t = useTheme();
   const initial = (user?.displayName || user?.handle || "?").charAt(0).toUpperCase();
+  const ring: ViewStyle = { borderRadius: size / 2, borderWidth: 1.5, borderColor: t.glassBorder, overflow: "hidden" };
   const content = user?.avatarUrl ? (
-    <Image
-      source={{ uri: user.avatarUrl }}
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: t.bgInput }}
-      contentFit="cover"
-      transition={150}
-      accessibilityIgnoresInvertColors
-    />
+    <View style={ring}>
+      <Image source={{ uri: user.avatarUrl }} style={{ width: size, height: size, backgroundColor: t.bgInput }} contentFit="cover" transition={150} accessibilityIgnoresInvertColors />
+    </View>
   ) : (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: t.bgInput, alignItems: "center", justifyContent: "center" }}>
-      <Text weight="700" style={{ fontSize: size * 0.42, color: t.textMuted }}>
+    <LinearGradient colors={t.accentGradient} style={[ring, { width: size, height: size, alignItems: "center", justifyContent: "center" }]}>
+      <Text weight="700" style={{ fontSize: size * 0.42, color: "#fff" }}>
         {initial}
       </Text>
-    </View>
+    </LinearGradient>
   );
   if (!onPress) return content;
   return (
@@ -83,7 +97,7 @@ export function Avatar({ user, size = 40, onPress }: { user: Pick<UserSummary, "
   );
 }
 
-/** "ID verified" badge — shown for KYC level ≥ 1. Organisation badge (level 2) uses a square. */
+/** Gold "ID verified" seal (KYC level ≥ 1); organisations (level 2) get the shield. */
 export function VerifiedBadge({ level, size = 16 }: { level: number; size?: number }) {
   const t = useTheme();
   if (level < 1) return null;
@@ -91,21 +105,22 @@ export function VerifiedBadge({ level, size = 16 }: { level: number; size?: numb
     <Ionicons
       name={level >= 2 ? "shield-checkmark" : "checkmark-circle"}
       size={size}
-      color={t.accent}
+      color={t.verified}
       accessibilityLabel={level >= 2 ? "Verified organisation" : "ID verified"}
-      style={{ marginLeft: 2 }}
+      style={{ marginLeft: 3 }}
     />
   );
 }
 
 export function NameLine({ user, onPress, size = "md" }: { user: UserSummary; onPress?: () => void; size?: keyof typeof font }) {
+  const t = useTheme();
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={{ flexDirection: "row", alignItems: "center", flexShrink: 1 }}>
       <Text weight="700" size={size} numberOfLines={1} style={{ flexShrink: 1 }}>
         {user.displayName}
       </Text>
       <VerifiedBadge level={user.kycLevel} />
-      {user.isProtected ? <Ionicons name="lock-closed" size={13} color="#888" style={{ marginLeft: 2 }} /> : null}
+      {user.isProtected ? <Ionicons name="lock-closed" size={13} color={t.textMuted} style={{ marginLeft: 3 }} /> : null}
     </Pressable>
   );
 }
@@ -132,15 +147,20 @@ export function Button({
   icon?: IconName;
 }) {
   const t = useTheme();
-  const palette: Record<ButtonVariant, { bg: string; fg: string; border: string }> = {
-    primary: { bg: t.accent, fg: t.accentText, border: t.accent },
-    secondary: { bg: t.text, fg: t.bg, border: t.text },
-    outline: { bg: "transparent", fg: t.text, border: t.border },
-    danger: { bg: "transparent", fg: t.danger, border: t.danger },
-    ghost: { bg: "transparent", fg: t.accent, border: "transparent" },
-  };
-  const c = palette[variant];
   const off = disabled || loading;
+  const height = small ? 36 : 52;
+  const fg =
+    variant === "primary" ? "#fff" : variant === "secondary" ? t.bg : variant === "danger" ? t.danger : variant === "ghost" ? t.accent : t.text;
+  const label = loading ? (
+    <ActivityIndicator color={fg} />
+  ) : (
+    <>
+      {icon ? <Ionicons name={icon} size={small ? 16 : 18} color={fg} /> : null}
+      <RNText style={{ color: fg, fontWeight: "700", fontSize: small ? font.sm : font.md }}>{title}</RNText>
+    </>
+  );
+  const inner: ViewStyle = { minHeight: height, paddingHorizontal: small ? space.lg : space.xl, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm, borderRadius: radius.pill };
+
   return (
     <Pressable
       onPress={onPress}
@@ -148,34 +168,31 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled: !!off, busy: !!loading }}
       style={({ pressed }) => [
-        {
-          backgroundColor: c.bg,
-          borderColor: c.border,
-          borderWidth: 1,
-          borderRadius: radius.pill,
-          paddingHorizontal: small ? space.lg : space.xl,
-          minHeight: small ? 34 : 48,
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "row",
-          gap: space.sm,
-          opacity: off ? 0.5 : pressed ? 0.8 : 1,
-        },
+        { borderRadius: radius.pill, opacity: off ? 0.45 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] },
+        variant === "primary" && !off
+          ? { shadowColor: t.accentGradient[1], shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 6 }
+          : null,
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={c.fg} />
+      {variant === "primary" ? (
+        <LinearGradient colors={t.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={inner}>
+          {label}
+        </LinearGradient>
+      ) : variant === "secondary" ? (
+        <View style={[inner, { backgroundColor: t.text }]}>{label}</View>
+      ) : variant === "ghost" ? (
+        <View style={inner}>{label}</View>
       ) : (
-        <>
-          {icon ? <Ionicons name={icon} size={small ? 16 : 18} color={c.fg} /> : null}
-          <RNText style={{ color: c.fg, fontWeight: "700", fontSize: small ? font.sm : font.md }}>{title}</RNText>
-        </>
+        <Glass radius={radius.pill} interactive style={inner}>
+          {label}
+        </Glass>
       )}
     </Pressable>
   );
 }
 
+/** Round glass icon button (header actions, overlays). */
 export function IconButton({
   name,
   onPress,
@@ -183,9 +200,11 @@ export function IconButton({
   size = 22,
   label,
   style,
+  glass,
   ...rest
-}: { name: IconName; onPress?: () => void; color?: string; size?: number; label: string; style?: StyleProp<ViewStyle> } & Omit<PressableProps, "style" | "onPress">) {
+}: { name: IconName; onPress?: () => void; color?: string; size?: number; label: string; style?: StyleProp<ViewStyle>; glass?: boolean } & Omit<PressableProps, "style" | "onPress">) {
   const t = useTheme();
+  const icon = <Ionicons name={name} size={size} color={color ?? t.text} />;
   return (
     <Pressable
       {...rest}
@@ -193,9 +212,15 @@ export function IconButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
-      style={({ pressed }) => [{ padding: 6, borderRadius: radius.pill, opacity: pressed ? 0.6 : 1 }, style]}
+      style={({ pressed }) => [{ borderRadius: radius.pill, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] }, !glass ? { padding: 6 } : null, style]}
     >
-      <Ionicons name={name} size={size} color={color ?? t.text} />
+      {glass ? (
+        <Glass radius={radius.pill} interactive style={{ width: size + 20, height: size + 20, alignItems: "center", justifyContent: "center" }}>
+          {icon}
+        </Glass>
+      ) : (
+        icon
+      )}
     </Pressable>
   );
 }
@@ -205,7 +230,7 @@ export function TextField({ label, error, style, ...rest }: TextInputProps & { l
   return (
     <View style={{ gap: 6 }}>
       {label ? (
-        <Text muted size="sm">
+        <Text muted size="sm" weight="600" style={{ marginLeft: 4 }}>
           {label}
         </Text>
       ) : null}
@@ -215,20 +240,20 @@ export function TextField({ label, error, style, ...rest }: TextInputProps & { l
         accessibilityLabel={label ?? rest.placeholder}
         style={[
           {
-            borderWidth: 1,
-            borderColor: error ? t.danger : t.border,
-            borderRadius: radius.sm,
-            paddingHorizontal: space.md,
-            paddingVertical: space.md,
+            borderWidth: StyleSheet.hairlineWidth * 2,
+            borderColor: error ? t.danger : t.cardBorder,
+            borderRadius: radius.md,
+            paddingHorizontal: space.lg,
+            paddingVertical: 14,
             fontSize: font.lg,
             color: t.text,
-            backgroundColor: t.bg,
+            backgroundColor: t.bgInput,
           },
           style as StyleProp<TextStyle>,
         ]}
       />
       {error ? (
-        <Text size="sm" style={{ color: t.danger }}>
+        <Text size="sm" style={{ color: t.danger, marginLeft: 4 }}>
           {error}
         </Text>
       ) : null}
@@ -236,44 +261,43 @@ export function TextField({ label, error, style, ...rest }: TextInputProps & { l
   );
 }
 
+/** Top bar for pushed screens: a floating glass back button and a bold title, over the backdrop. */
 export function Header({ title, subtitle, right, back = true }: { title: string; subtitle?: string; right?: ReactNode; back?: boolean }) {
-  const t = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View
-      style={{
-        paddingTop: insets.top,
-        backgroundColor: t.bg,
-        borderBottomWidth: 1,
-        borderBottomColor: t.border,
-      }}
-    >
-      <View style={{ height: 52, flexDirection: "row", alignItems: "center", paddingHorizontal: space.sm, gap: space.md }}>
-        {back ? <IconButton name="arrow-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} /> : null}
-        <View style={{ flex: 1 }}>
-          <Text weight="700" size="xl" numberOfLines={1}>
-            {title}
+    <View style={{ paddingTop: insets.top + 4, paddingBottom: space.sm, paddingHorizontal: space.md, flexDirection: "row", alignItems: "center", gap: space.md }}>
+      {back ? <IconButton name="chevron-back" glass size={20} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} /> : null}
+      <View style={{ flex: 1 }}>
+        <Text weight="800" size="xl" numberOfLines={1} style={{ letterSpacing: -0.3 }}>
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text muted size="xs" numberOfLines={1}>
+            {subtitle}
           </Text>
-          {subtitle ? (
-            <Text muted size="xs" numberOfLines={1}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
-        {right}
+        ) : null}
       </View>
+      {right}
     </View>
   );
 }
 
 export function EmptyState({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
+  const t = useTheme();
   return (
-    <View style={{ padding: space.xxl, gap: space.sm }}>
-      <Text weight="800" size="xxl">
+    <View style={{ padding: space.xxl, gap: space.sm, alignItems: "center" }}>
+      <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: space.sm }}>
+        <Ionicons name="sparkles" size={28} color={t.accent} />
+      </View>
+      <Text weight="800" size="xl" style={{ textAlign: "center" }}>
         {title}
       </Text>
-      {body ? <Text muted>{body}</Text> : null}
-      {action ? <View style={{ marginTop: space.lg, alignSelf: "flex-start" }}>{action}</View> : null}
+      {body ? (
+        <Text muted style={{ textAlign: "center", lineHeight: 21 }}>
+          {body}
+        </Text>
+      ) : null}
+      {action ? <View style={{ marginTop: space.lg }}>{action}</View> : null}
     </View>
   );
 }
@@ -298,44 +322,55 @@ export function ErrorView({ message, onRetry }: { message: string; onRetry?: () 
   );
 }
 
-/** X-style underline tabs (For You / Following, Posts / Replies / Media / Likes…). */
+/** Segmented pill chips (replaces X-style underline tabs). Scrolls horizontally when there are many. */
 export function TopTabs<T extends string>({ tabs, value, onChange }: { tabs: { key: T; label: string }[]; value: T; onChange: (k: T) => void }) {
-  const t = useTheme();
   return (
-    <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.bg }}>
-      {tabs.map((tab) => {
-        const active = tab.key === value;
-        return (
-          <Pressable
-            key={tab.key}
-            onPress={() => onChange(tab.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            style={{ flex: 1, alignItems: "center", paddingTop: space.md }}
-          >
-            <Text weight={active ? "700" : "500"} muted={!active} numberOfLines={1}>
-              {tab.label}
-            </Text>
-            <View style={{ height: 4, width: active ? 56 : 0, borderRadius: 2, backgroundColor: t.accent, marginTop: space.md }} />
-          </Pressable>
-        );
-      })}
-    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.sm }}>
+      {tabs.map((tab) => (
+        <Chip key={tab.key} label={tab.label} active={tab.key === value} onPress={() => onChange(tab.key)} />
+      ))}
+    </ScrollView>
   );
 }
 
-export function UserRow({ user, right, onPress }: { user: UserSummary; right?: ReactNode; onPress?: () => void }) {
+export function UserRow({ user, right, onPress, subtitle }: { user: UserSummary; right?: ReactNode; onPress?: () => void; subtitle?: string }) {
+  const t = useTheme();
   const go = onPress ?? (() => router.push(`/user/${user.handle}`));
   return (
-    <Pressable onPress={go} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, padding: space.lg, opacity: pressed ? 0.85 : 1 })}>
-      <Avatar user={user} size={44} />
+    <Pressable
+      onPress={go}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, backgroundColor: pressed ? t.cardPressed : "transparent" })}
+    >
+      <Avatar user={user} size={46} />
       <View style={{ flex: 1 }}>
         <NameLine user={user} />
-        <Text muted numberOfLines={1}>
-          @{user.handle}
+        <Text muted size="sm" numberOfLines={1}>
+          {subtitle ?? `@${user.handle}`}
         </Text>
       </View>
       {right}
     </Pressable>
+  );
+}
+
+/** iOS-style inset grouped container for settings and lists of rows. */
+export function Group({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const t = useTheme();
+  return (
+    <View
+      style={[
+        {
+          marginHorizontal: space.lg,
+          borderRadius: radius.lg,
+          overflow: "hidden",
+          backgroundColor: t.card,
+          borderWidth: StyleSheet.hairlineWidth * 2,
+          borderColor: t.cardBorder,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
   );
 }

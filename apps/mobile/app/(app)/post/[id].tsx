@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
@@ -9,9 +10,11 @@ import { MediaGrid } from "../../../src/components/MediaGrid";
 import { PollView } from "../../../src/components/PollView";
 import { PostActions, PostCard, QuotedPost, usePostMenu } from "../../../src/components/PostCard";
 import { RichText } from "../../../src/components/RichText";
+import { Card, Glass } from "../../../src/components/glass";
 import { Avatar, Divider, ErrorView, Header, IconButton, Loading, NameLine, Screen, Text } from "../../../src/components/ui";
 import { postVisible } from "../../../src/lib/events";
-import { space, useTheme } from "../../../src/theme";
+import { radius, space, useTheme } from "../../../src/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
   if (n === 0) return null;
@@ -31,9 +34,10 @@ function FocalPost({ post }: { post: Post }) {
   const created = new Date(post.createdAt);
   const engagements = () => router.push({ pathname: "/engagements", params: { postId: post.id } });
   return (
-    <View style={{ padding: space.lg, gap: space.md }}>
+    <View style={{ paddingHorizontal: space.md, paddingTop: space.sm }}>
+    <Card style={{ gap: space.md, borderRadius: radius.xl, borderColor: `${t.accent}55` }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-        <Avatar user={post.author} size={44} onPress={() => router.push(`/user/${post.author.handle}`)} />
+        <Avatar user={post.author} size={48} onPress={() => router.push(`/user/${post.author.handle}`)} />
         <View style={{ flex: 1 }}>
           <NameLine user={post.author} onPress={() => router.push(`/user/${post.author.handle}`)} />
           <Text muted>@{post.author.handle}</Text>
@@ -73,6 +77,7 @@ function FocalPost({ post }: { post: Post }) {
       ) : null}
       <Divider />
       <PostActions post={post} large />
+    </Card>
     </View>
   );
 }
@@ -80,6 +85,7 @@ function FocalPost({ post }: { post: Post }) {
 export default function PostScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const thread = useThread(id);
 
   // Further pages of replies beyond the first page bundled with the thread.
@@ -150,12 +156,16 @@ export default function PostScreen() {
       {post.viewer.canReply ? (
         <Pressable
           onPress={() => router.push({ pathname: "/compose", params: { replyToId: post.id } })}
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, borderTopWidth: 1, borderTopColor: t.border, backgroundColor: t.bg, padding: space.lg, paddingBottom: space.xxl }}
+          style={{ position: "absolute", left: space.md, right: space.md, bottom: insets.bottom + space.md }}
           accessibilityRole="button"
         >
-          <View style={{ backgroundColor: t.bgInput, borderRadius: 999, paddingHorizontal: space.lg, paddingVertical: space.md }}>
-            <Text muted>Post your reply</Text>
-          </View>
+          <Glass radius={radius.pill} interactive style={{ flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 14 }}>
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={t.accent} />
+            <Text muted style={{ flex: 1 }}>
+              Post your reply
+            </Text>
+            <Ionicons name="arrow-up-circle" size={26} color={t.accent} />
+          </Glass>
         </Pressable>
       ) : null}
     </Screen>

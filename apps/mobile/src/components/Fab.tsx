@@ -1,11 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Pressable } from "react-native";
-import { useTheme } from "../theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { tabBarSpace, useTheme } from "../theme";
 import type { IconName } from "./ui";
 
-/** Floating action button (compose / new message), bottom-right like X. */
-export function Fab({ icon = "add", label, onPress }: { icon?: IconName; label: string; onPress: () => void }) {
+/** Floating action button: a glowing gradient orb that sits just above the floating tab bar. */
+export function Fab({ icon = "add", label, onPress, aboveTabBar = true }: { icon?: IconName; label: string; onPress: () => void; aboveTabBar?: boolean }) {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <Pressable
       onPress={onPress}
@@ -13,23 +16,25 @@ export function Fab({ icon = "add", label, onPress }: { icon?: IconName; label: 
       accessibilityLabel={label}
       style={({ pressed }) => ({
         position: "absolute",
-        right: 18,
-        bottom: 18,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: t.accent,
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: pressed ? 0.85 : 1,
-        shadowColor: "#000",
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 6,
+        right: 20,
+        bottom: aboveTabBar ? tabBarSpace(insets.bottom) : insets.bottom + 20,
+        borderRadius: 30,
+        transform: [{ scale: pressed ? 0.93 : 1 }],
+        shadowColor: t.accentGradient[1],
+        shadowOpacity: 0.6,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 10,
       })}
     >
-      <Ionicons name={icon} size={30} color={t.accentText} />
+      <LinearGradient
+        colors={t.accentGradient}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={{ width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" }}
+      >
+        <Ionicons name={icon} size={28} color="#fff" />
+      </LinearGradient>
     </Pressable>
   );
 }

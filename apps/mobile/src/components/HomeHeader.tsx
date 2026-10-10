@@ -3,23 +3,24 @@ import type { ReactNode } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../store/auth";
-import { space, useTheme } from "../theme";
-import { Logo } from "./Logo";
+import { space } from "../theme";
 import { Avatar, Text } from "./ui";
 
-/** Top bar used on the tab screens: avatar (opens account menu) · title or logo · optional action. */
-export function TabHeader({ title, right, children }: { title?: string; right?: ReactNode; children?: ReactNode }) {
-  const t = useTheme();
+/**
+ * Large-title header for tab screens (Apple style): bold title on the left, actions and the
+ * account avatar on the right, optional search/chips underneath. Sits directly on the backdrop.
+ */
+export function TabHeader({ title = "Projectfeed", right, children }: { title?: string; right?: ReactNode; children?: ReactNode }) {
   const insets = useSafeAreaInsets();
   const me = useAuth((s) => s.user);
   return (
-    <View style={{ paddingTop: insets.top, backgroundColor: t.bg }}>
-      <View style={{ height: 52, flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg }}>
-        <View style={{ width: 64 }}>
-          <Avatar user={me} size={32} onPress={() => router.push("/account-menu")} />
-        </View>
-        <View style={{ flex: 1, alignItems: "center" }}>{title ? <Text weight="700" size="lg">{title}</Text> : <Logo size={28} />}</View>
-        <View style={{ width: 64, alignItems: "flex-end" }}>{right}</View>
+    <View style={{ paddingTop: insets.top + space.sm }}>
+      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, paddingBottom: space.sm, gap: space.sm }}>
+        <Text weight="800" size="title" numberOfLines={1} style={{ flex: 1 }} accessibilityRole="header">
+          {title}
+        </Text>
+        {right}
+        <Avatar user={me} size={36} onPress={() => router.push("/account-menu")} />
       </View>
       {children}
     </View>

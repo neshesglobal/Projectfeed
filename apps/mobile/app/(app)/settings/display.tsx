@@ -1,48 +1,57 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, View } from "react-native";
-import { Header, Screen, Text } from "../../../src/components/ui";
+import { Group, Header, Screen, Text } from "../../../src/components/ui";
 import { usePrefs, type ThemePref } from "../../../src/store/prefs";
 import { radius, space, themes, useTheme } from "../../../src/theme";
 
-const OPTIONS: { key: ThemePref; label: string; bg: string; fg: string }[] = [
-  { key: "system", label: "Use device setting", bg: "transparent", fg: "" },
-  { key: "light", label: "Default", bg: themes.light.bg, fg: themes.light.text },
-  { key: "dim", label: "Dim", bg: themes.dim.bg, fg: themes.dim.text },
-  { key: "dark", label: "Lights out", bg: themes.dark.bg, fg: themes.dark.text },
+const OPTIONS: { key: ThemePref; label: string; body: string }[] = [
+  { key: "system", label: "Automatic", body: "Match your device" },
+  { key: "dark", label: "Midnight", body: "Deep violet glass" },
+  { key: "light", label: "Daylight", body: "Soft lavender glass" },
 ];
 
 export default function Display() {
   const t = useTheme();
   const pref = usePrefs((s) => s.theme);
   const setTheme = usePrefs((s) => s.setTheme);
+  const current = pref === "dim" ? "dark" : pref;
   return (
     <Screen>
-      <Header title="Display" />
-      <View style={{ padding: space.lg, gap: space.md }}>
-        <Text muted>Manage your background. These settings affect this device only.</Text>
-        {OPTIONS.map((o) => (
+      <Header title="Appearance" />
+      <View style={{ flexDirection: "row", gap: space.md, padding: space.lg }}>
+        {(["dark", "light"] as const).map((m) => (
+          <LinearGradient key={m} colors={themes[m].gradient} style={{ flex: 1, height: 120, borderRadius: radius.lg, padding: space.md, justifyContent: "flex-end", borderWidth: 1, borderColor: t.cardBorder }}>
+            <View style={{ height: 22, borderRadius: radius.pill, backgroundColor: themes[m].glassTint, borderWidth: 1, borderColor: themes[m].glassBorder }} />
+          </LinearGradient>
+        ))}
+      </View>
+      <Group>
+        {OPTIONS.map((o, i) => (
           <Pressable
             key={o.key}
             onPress={() => setTheme(o.key)}
             accessibilityRole="radio"
-            accessibilityState={{ checked: pref === o.key }}
-            style={{
+            accessibilityState={{ checked: current === o.key }}
+            style={({ pressed }) => ({
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "space-between",
               padding: space.lg,
-              borderRadius: radius.md,
-              borderWidth: 2,
-              borderColor: pref === o.key ? t.accent : t.border,
-              backgroundColor: o.key === "system" ? t.bg : o.bg,
-            }}
+              backgroundColor: pressed ? t.cardPressed : "transparent",
+              borderTopWidth: i ? 1 : 0,
+              borderTopColor: t.border,
+            })}
           >
-            <Text weight="700" style={o.fg ? { color: o.fg } : undefined}>
-              {o.label}
-            </Text>
-            <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: t.accent, backgroundColor: pref === o.key ? t.accent : "transparent" }} />
+            <View style={{ flex: 1 }}>
+              <Text weight="600">{o.label}</Text>
+              <Text muted size="sm">
+                {o.body}
+              </Text>
+            </View>
+            {current === o.key ? <Ionicons name="checkmark-circle" size={22} color={t.accent} /> : <Ionicons name="ellipse-outline" size={22} color={t.textMuted} />}
           </Pressable>
         ))}
-      </View>
+      </Group>
     </Screen>
   );
 }

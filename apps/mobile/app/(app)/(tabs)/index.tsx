@@ -3,42 +3,20 @@ import type { FlashListRef } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
 import { router, useNavigation } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import type { FeedItem, Page } from "@projectfeed/shared";
 import { api } from "../../../src/api/client";
 import { useFollowing, useForYou, useListTimeline, useMyLists } from "../../../src/api/hooks";
 import { Fab } from "../../../src/components/Fab";
 import { Feed } from "../../../src/components/Feed";
 import { TabHeader } from "../../../src/components/HomeHeader";
-import { Button, EmptyState, Screen, Text } from "../../../src/components/ui";
+import { Glass } from "../../../src/components/glass";
+import { Button, EmptyState, IconButton, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { WelcomeHero } from "../../../src/components/WelcomeHero";
+import { useAuth } from "../../../src/store/auth";
 import { usePrefs } from "../../../src/store/prefs";
 import { useSignals } from "../../../src/store/signals";
 import { radius, space, useTheme } from "../../../src/theme";
-
-function HomeTabs({ value, onChange, tabs }: { value: string; onChange: (k: string) => void; tabs: { key: string; label: string }[] }) {
-  const t = useTheme();
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ borderBottomWidth: 1, borderBottomColor: t.border, flexGrow: 0 }} contentContainerStyle={{ flexGrow: 1 }}>
-      {tabs.map((tab) => {
-        const active = tab.key === value;
-        return (
-          <Pressable
-            key={tab.key}
-            onPress={() => onChange(tab.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            style={{ flexGrow: 1, minWidth: 110, alignItems: "center", paddingTop: space.md, paddingHorizontal: space.lg }}
-          >
-            <Text weight={active ? "700" : "500"} muted={!active}>
-              {tab.label}
-            </Text>
-            <View style={{ height: 4, width: active ? 56 : 0, borderRadius: 2, backgroundColor: t.accent, marginTop: space.md }} />
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-}
 
 function ListFeed({ id }: { id: string }) {
   const q = useListTimeline(id);
@@ -47,6 +25,8 @@ function ListFeed({ id }: { id: string }) {
 
 export default function Home() {
   const t = useTheme();
+  const me = useAuth((s) => s.user);
+  const heroDismissed = usePrefs((s) => s.heroDismissed);
   const tab = usePrefs((s) => s.homeTab);
   const setTab = usePrefs((s) => s.setHomeTab);
   const forYou = useForYou();
@@ -93,10 +73,8 @@ export default function Home() {
 
   return (
     <Screen>
-      <TabHeader
-        right={<Ionicons name="options-outline" size={22} color={t.text} onPress={() => router.push("/settings/display")} accessibilityLabel="Display settings" />}
-      >
-        <HomeTabs value={activeTab} onChange={setTab} tabs={tabs} />
+      <TabHeader title="Projectfeed" right={<IconButton name="color-palette-outline" glass size={18} label="Appearance" onPress={() => router.push("/settings/display")} />}>
+        <TopTabs value={activeTab} onChange={setTab} tabs={tabs} />
       </TabHeader>
       <View style={{ flex: 1 }}>
         {activeTab.startsWith("list:") ? (
@@ -107,6 +85,7 @@ export default function Home() {
             ref={feedRef as never}
             query={active}
             surface={activeTab}
+            header={activeTab === "for-you" && !heroDismissed && (me?.followingCount ?? 0) < 5 ? <WelcomeHero /> : null}
             empty={
               activeTab === "following" ? (
                 <EmptyState
@@ -121,16 +100,13 @@ export default function Home() {
           />
         )}
         {hasNew ? (
-          <Pressable
-            onPress={scrollTopAndRefresh}
-            accessibilityRole="button"
-            accessibilityLabel="Show new posts"
-            style={{ position: "absolute", top: space.md, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: t.accent, borderRadius: radius.pill, paddingHorizontal: space.lg, paddingVertical: space.sm }}
-          >
-            <Ionicons name="arrow-up" size={16} color={t.accentText} />
-            <Text weight="700" size="sm" style={{ color: t.accentText }}>
-              New posts
-            </Text>
+          <Pressable onPress={scrollTopAndRefresh} accessibilityRole="button" accessibilityLabel="Show new posts" style={{ position: "absolute", top: space.sm, alignSelf: "center" }}>
+            <Glass radius={radius.pill} interactive style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: 10 }}>
+              <Ionicons name="arrow-up" size={16} color={t.accent} />
+              <Text weight="700" size="sm">
+                New posts
+              </Text>
+            </Glass>
           </Pressable>
         ) : null}
         <Fab icon="add" label="Compose post" onPress={() => router.push("/compose")} />

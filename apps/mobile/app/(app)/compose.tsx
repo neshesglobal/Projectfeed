@@ -14,6 +14,7 @@ import { formatDuration, uploadWithProgress, waitUntilReady, type LocalAsset } f
 import { QuotedPost } from "../../src/components/PostCard";
 import { useSheet } from "../../src/components/Sheet";
 import { toast } from "../../src/components/Toast";
+import { Backdrop, Glass } from "../../src/components/glass";
 import { Avatar, Button, IconButton, Text } from "../../src/components/ui";
 import { useAuth } from "../../src/store/auth";
 import { useSignals } from "../../src/store/signals";
@@ -292,6 +293,7 @@ export default function Compose() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: t.bg }}>
+      <Backdrop />
       <View style={{ paddingTop: Platform.OS === "android" ? insets.top : space.md, paddingHorizontal: space.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: space.sm }}>
         <Pressable onPress={() => router.back()} accessibilityRole="button" hitSlop={8}>
           <Text>Cancel</Text>
@@ -372,7 +374,7 @@ export default function Compose() {
         ))}
       </ScrollView>
 
-      <View style={{ borderTopWidth: 1, borderTopColor: t.border, paddingBottom: insets.bottom || space.md }}>
+      <Glass radius={radius.xl} style={{ marginHorizontal: space.sm, marginBottom: (insets.bottom || space.md) + 4, paddingVertical: space.xs }}>
         {!params.replyToId && !isEdit ? (
           <Pressable onPress={chooseAudience} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.sm }}>
             <Ionicons name="earth" size={16} color={t.accent} />
@@ -411,11 +413,11 @@ export default function Compose() {
             <Counter text={drafts[0]!.text} />
           </View>
         )}
-      </View>
+      </Glass>
 
       <Modal visible={!!altEditing} transparent animationType="fade" onRequestClose={() => setAltEditing(null)}>
         <View style={{ flex: 1, backgroundColor: t.overlay, justifyContent: "center", padding: space.xl }}>
-          <View style={{ backgroundColor: t.bg, borderRadius: radius.lg, padding: space.lg, gap: space.md }}>
+          <Glass radius={radius.xl} style={{ padding: space.xl, gap: space.md }}>
             <Text weight="800" size="lg">
               Image description
             </Text>
@@ -444,7 +446,7 @@ export default function Compose() {
                 }}
               />
             </View>
-          </View>
+          </Glass>
         </View>
       </Modal>
     </KeyboardAvoidingView>

@@ -23,9 +23,9 @@ export default function SearchResults() {
 
   return (
     <Screen>
-      <View style={{ paddingTop: top, backgroundColor: t.bg }}>
+      <View style={{ paddingTop: top }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.sm, paddingVertical: space.sm }}>
-          <IconButton name="arrow-back" label="Back" onPress={() => router.back()} />
+          <IconButton name="chevron-back" glass size={20} label="Back" onPress={() => router.back()} />
           <View style={{ flex: 1 }}>
             <SearchBar value={q} onChange={setQ} onSubmit={() => setSubmitted(q.trim())} />
           </View>

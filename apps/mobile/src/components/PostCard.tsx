@@ -21,6 +21,7 @@ import { PollView } from "./PollView";
 import { RichText } from "./RichText";
 import { useSheet, type SheetOption } from "./Sheet";
 import { toast } from "./Toast";
+import { Card } from "./glass";
 import { Avatar, NameLine, Text } from "./ui";
 
 export const SHARE_BASE = "https://projectfeed.app";
@@ -67,7 +68,16 @@ function ActionButton({
       accessibilityRole="button"
       accessibilityLabel={`${label}${count ? `, ${count}` : ""}`}
       accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 4, minWidth: 52, opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: radius.pill,
+        backgroundColor: active ? `${color}22` : pressed ? t.cardPressed : "transparent",
+        transform: [{ scale: pressed ? 0.94 : 1 }],
+      })}
     >
       <Ionicons name={icon} size={18} color={c} />
       {count !== undefined && count > 0 ? (
@@ -99,7 +109,7 @@ export function PostActions({ post, large }: { post: Post; large?: boolean }) {
   };
 
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: large ? space.md : space.sm, paddingRight: space.sm }}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: large ? space.md : space.sm, marginHorizontal: -10 }}>
       <ActionButton
         icon="chatbubble-outline"
         label="Reply"
@@ -114,7 +124,7 @@ export function PostActions({ post, large }: { post: Post; large?: boolean }) {
       <ActionButton icon="repeat" label="Repost" count={post.counts.reposts + post.counts.quotes} color={t.repost} active={post.viewer.reposted} onPress={onRepost} />
       <ActionButton icon={post.viewer.liked ? "heart" : "heart-outline"} label="Like" count={post.counts.likes} color={t.like} active={post.viewer.liked} onPress={() => like.mutate(post)} />
       <ActionButton icon="stats-chart" label="Views" count={post.counts.views} color={t.textMuted} />
-      <View style={{ flexDirection: "row", gap: space.md }}>
+      <View style={{ flexDirection: "row" }}>
         <ActionButton icon={post.viewer.bookmarked ? "bookmark" : "bookmark-outline"} label="Bookmark" color={t.accent} active={post.viewer.bookmarked} onPress={() => bookmark.mutate(post)} />
         <ActionButton icon="share-outline" label="Share" color={t.textMuted} onPress={onShare} />
       </View>
@@ -190,7 +200,7 @@ export function QuotedPost({ post }: { post: Post }) {
   const t = useTheme();
   if (post.unavailable) {
     return (
-      <View style={{ marginTop: space.md, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.md }}>
+      <View style={{ marginTop: space.md, backgroundColor: t.bgInput, borderRadius: radius.md, padding: space.md }}>
         <Text muted>This post is unavailable.</Text>
       </View>
     );
@@ -198,7 +208,7 @@ export function QuotedPost({ post }: { post: Post }) {
   return (
     <Pressable
       onPress={() => router.push(`/post/${post.id}`)}
-      style={{ marginTop: space.md, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.md, gap: 4 }}
+      style={{ marginTop: space.md, backgroundColor: t.bgInput, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: space.md, gap: 6 }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         <Avatar user={post.author} size={20} />
@@ -216,9 +226,9 @@ export function QuotedPost({ post }: { post: Post }) {
 function SocialContext({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
   const t = useTheme();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginLeft: 30, marginBottom: 2 }}>
-      <Ionicons name={icon} size={14} color={t.textMuted} />
-      <Text muted size="sm" weight="700" numberOfLines={1}>
+    <View style={{ flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 5, marginBottom: space.md, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: t.accentSoft }}>
+      <Ionicons name={icon} size={12} color={t.accent} />
+      <Text size="xs" weight="700" numberOfLines={1} style={{ color: t.accent }}>
         {text}
       </Text>
     </View>
@@ -254,56 +264,41 @@ export const PostCard = memo(function PostCard({
   };
 
   return (
-    <Pressable
-      onPress={goPost}
-      accessibilityHint="Opens the post"
-      style={({ pressed }) => ({
-        paddingHorizontal: space.lg,
-        paddingTop: threadLineAbove ? 0 : space.md,
-        paddingBottom: threadLineBelow ? 0 : space.md,
-        backgroundColor: pressed ? t.bgElevated : t.bg,
-        borderBottomWidth: threadLineBelow ? 0 : 1,
-        borderBottomColor: t.border,
-      })}
-    >
-      {pinned ? <SocialContext icon="pin" text="Pinned" /> : null}
-      {repostedBy ? <SocialContext icon="repeat" text={`${repostedBy.displayName} reposted`} /> : null}
-      {!repostedBy && reason ? <SocialContext icon="sparkles-outline" text={reason} /> : null}
-      <View style={{ flexDirection: "row", gap: space.md }}>
-        <View style={{ alignItems: "center" }}>
-          {threadLineAbove ? <View style={{ width: 2, height: space.md, backgroundColor: t.border }} /> : null}
-          <Avatar user={post.author} size={40} onPress={goProfile} />
-          {threadLineBelow ? <View style={{ width: 2, flex: 1, backgroundColor: t.border, marginTop: 4 }} /> : null}
-        </View>
-        <View style={{ flex: 1, paddingBottom: threadLineBelow ? space.md : 0, paddingTop: threadLineAbove ? space.md : 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+    <View style={{ paddingHorizontal: space.md, paddingTop: threadLineAbove ? 0 : space.sm }}>
+      <Card onPress={goPost} accessibilityHint="Opens the post" style={{ borderRadius: radius.xl }}>
+        {pinned ? <SocialContext icon="pin" text="Pinned" /> : null}
+        {repostedBy ? <SocialContext icon="repeat" text={`${repostedBy.displayName} reposted`} /> : null}
+        {!repostedBy && reason ? <SocialContext icon="sparkles" text={reason} /> : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+          <Avatar user={post.author} size={44} onPress={goProfile} />
+          <View style={{ flex: 1 }}>
             <NameLine user={post.author} onPress={goProfile} />
-            <Text muted numberOfLines={1} style={{ flexShrink: 1 }}>
+            <Text muted size="sm" numberOfLines={1}>
               @{post.author.handle} · {formatRelativeTime(post.createdAt)}
+              {post.editedAt ? " · Edited" : ""}
             </Text>
-            <View style={{ flex: 1 }} />
-            <Pressable onPress={() => menu(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel="More options">
-              <Ionicons name="ellipsis-horizontal" size={16} color={t.textMuted} />
-            </Pressable>
           </View>
-          {post.replyTo ? (
-            <Text muted size="sm" style={{ marginBottom: 2 }}>
-              Replying to <Text size="sm" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
-            </Text>
-          ) : null}
-          {post.text ? <RichText text={post.text} postId={post.id} /> : null}
-          <MediaGrid media={post.media} postId={post.id} surface={surface} />
-          {post.poll ? <PollView post={post} /> : null}
-          {post.quote ? <QuotedPost post={post.quote} /> : null}
-          {post.editedAt ? (
-            <Text muted size="xs" style={{ marginTop: 4 }}>
-              Edited
-            </Text>
-          ) : null}
-          <PostActions post={post} />
+          <Pressable onPress={() => menu(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel="More options" style={{ padding: 4 }}>
+            <Ionicons name="ellipsis-horizontal" size={18} color={t.textMuted} />
+          </Pressable>
         </View>
-      </View>
-    </Pressable>
+        {post.replyTo ? (
+          <Text muted size="sm" style={{ marginTop: space.sm }}>
+            Replying to <Text size="sm" weight="600" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
+          </Text>
+        ) : null}
+        {post.text ? (
+          <View style={{ marginTop: space.sm }}>
+            <RichText text={post.text} postId={post.id} />
+          </View>
+        ) : null}
+        <MediaGrid media={post.media} postId={post.id} surface={surface} />
+        {post.poll ? <PollView post={post} /> : null}
+        {post.quote ? <QuotedPost post={post.quote} /> : null}
+        <PostActions post={post} />
+      </Card>
+      {threadLineBelow ? <View style={{ width: 2, height: space.md, marginLeft: space.lg + 21, backgroundColor: t.accent, opacity: 0.45, borderRadius: 1 }} /> : null}
+    </View>
   );
 });
 

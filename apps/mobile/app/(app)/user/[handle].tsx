@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCount, type FeedItem, type Post, type UserProfile } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
 import { useFollow, useProfile, useRelationshipAction, useUserPosts } from "../../../src/api/hooks";
+import { LinearGradient } from "expo-linear-gradient";
+import { Card } from "../../../src/components/glass";
 import { Feed } from "../../../src/components/Feed";
 import { MediaTabGrid } from "../../../src/components/MediaTabGrid";
 import { SHARE_BASE, openReport } from "../../../src/components/PostCard";
@@ -44,13 +46,13 @@ function ProfileHeader({ user, tab, setTab }: { user: UserProfile; tab: Tab; set
   return (
     <View>
       {user.bannerUrl ? (
-        <Image source={{ uri: user.bannerUrl }} style={{ height: 130, backgroundColor: t.bgInput }} contentFit="cover" />
+        <Image source={{ uri: user.bannerUrl }} style={{ height: 150, backgroundColor: t.bgInput }} contentFit="cover" />
       ) : (
-        <View style={{ height: 130, backgroundColor: t.bgInput }} />
+        <LinearGradient colors={[...t.accentGradient, "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }} style={{ height: 150, opacity: 0.55 }} />
       )}
       <View style={{ paddingHorizontal: space.lg }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: -36 }}>
-          <View style={{ borderWidth: 4, borderColor: t.bg, borderRadius: 48 }}>
+          <View style={{ borderWidth: 3, borderColor: t.glassHighlight, borderRadius: 48, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
             <Avatar user={user} size={80} />
           </View>
           <View style={{ flexDirection: "row", gap: space.sm, paddingBottom: space.xs }}>
@@ -122,18 +124,29 @@ function ProfileHeader({ user, tab, setTab }: { user: UserProfile; tab: Tab; set
             ))}
           </View>
         ) : null}
-        <View style={{ flexDirection: "row", gap: space.lg, marginTop: space.md, marginBottom: space.md }}>
-          <Pressable onPress={() => router.push({ pathname: "/connections", params: { userId: user.id, type: "following", handle: user.handle } })}>
-            <Text>
-              <Text weight="700">{formatCount(user.followingCount)}</Text> <Text muted>Following</Text>
-            </Text>
-          </Pressable>
-          <Pressable onPress={() => router.push({ pathname: "/connections", params: { userId: user.id, type: "followers", handle: user.handle } })}>
-            <Text>
-              <Text weight="700">{formatCount(user.followersCount)}</Text> <Text muted>Followers</Text>
-            </Text>
-          </Pressable>
-        </View>
+        <Card padding={0} style={{ flexDirection: "row", marginTop: space.lg, marginBottom: space.sm, borderRadius: radius.lg }}>
+          {(
+            [
+              ["Posts", user.postsCount, null],
+              ["Following", user.followingCount, "following"],
+              ["Followers", user.followersCount, "followers"],
+            ] as const
+          ).map(([label, n, type], i) => (
+            <Pressable
+              key={label}
+              disabled={!type}
+              onPress={() => type && router.push({ pathname: "/connections", params: { userId: user.id, type, handle: user.handle } })}
+              style={{ flex: 1, alignItems: "center", paddingVertical: space.md, borderLeftWidth: i ? 1 : 0, borderLeftColor: t.border }}
+            >
+              <Text weight="800" size="lg">
+                {formatCount(n)}
+              </Text>
+              <Text muted size="xs">
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </Card>
       </View>
       <TopTabs
         tabs={[
@@ -246,8 +259,8 @@ export default function ProfileScreen() {
         <ProfileBody user={user} />
       )}
       <View style={{ position: "absolute", top: insets.top + space.sm, left: space.md, right: space.md, flexDirection: "row", justifyContent: "space-between" }}>
-        <IconButton name="arrow-back" label="Back" color="#fff" size={20} style={{ backgroundColor: "rgba(0,0,0,0.55)" }} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
-        {user ? <IconButton name="ellipsis-horizontal" label="More" color="#fff" size={20} style={{ backgroundColor: "rgba(0,0,0,0.55)" }} onPress={menu} /> : null}
+        <IconButton name="chevron-back" label="Back" glass size={20} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
+        {user ? <IconButton name="ellipsis-horizontal" label="More" glass size={20} onPress={menu} /> : null}
       </View>
     </Screen>
   );

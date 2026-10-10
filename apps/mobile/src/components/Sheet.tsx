@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { Modal, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { radius, space, useTheme } from "../theme";
+import { Glass } from "./glass";
 import { Text, type IconName } from "./ui";
 
 export interface SheetOption {
@@ -33,47 +34,46 @@ export function SheetHost() {
   return (
     <Modal visible={!!options} transparent animationType="slide" onRequestClose={close}>
       <Pressable style={{ flex: 1, backgroundColor: t.overlay }} onPress={close} accessibilityLabel="Close menu" />
-      <View
-        style={{
-          backgroundColor: t.bg,
-          borderTopLeftRadius: radius.lg,
-          borderTopRightRadius: radius.lg,
-          paddingBottom: insets.bottom + space.md,
-          paddingTop: space.sm,
-        }}
-      >
-        <View style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: t.border, marginBottom: space.sm }} />
-        {title ? (
-          <Text muted size="sm" style={{ paddingHorizontal: space.xl, paddingVertical: space.sm }}>
-            {title}
-          </Text>
-        ) : null}
-        {options?.map((o) => (
-          <Pressable
-            key={o.label}
-            accessibilityRole="button"
-            onPress={() => {
-              close();
-              // Let the sheet close before the action opens another modal or navigates.
-              setTimeout(o.onPress, 50);
-            }}
-            style={({ pressed }) => ({
-              flexDirection: "row",
-              alignItems: "center",
-              gap: space.lg,
-              paddingHorizontal: space.xl,
-              paddingVertical: space.lg,
-              backgroundColor: pressed ? t.bgElevated : "transparent",
-            })}
-          >
-            {o.icon ? <Ionicons name={o.icon} size={20} color={o.destructive ? t.danger : t.text} /> : null}
-            <Text weight="700" style={o.destructive ? { color: t.danger } : undefined}>
-              {o.label}
+      <View style={{ paddingHorizontal: space.md, paddingBottom: insets.bottom + space.md }}>
+        {/* Floating glass sheet, detached from the screen edges as in iOS 26. */}
+        <Glass radius={radius.xl} style={{ paddingVertical: space.sm }}>
+          <View style={{ alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: t.textMuted, opacity: 0.4, marginBottom: space.sm }} />
+          {title ? (
+            <Text muted size="sm" weight="600" style={{ paddingHorizontal: space.xl, paddingVertical: space.sm }}>
+              {title}
             </Text>
-          </Pressable>
-        ))}
-        <Pressable onPress={close} style={{ marginHorizontal: space.lg, marginTop: space.sm, borderWidth: 1, borderColor: t.border, borderRadius: radius.pill, paddingVertical: space.md, alignItems: "center" }}>
-          <Text weight="700">Cancel</Text>
+          ) : null}
+          {options?.map((o) => (
+            <Pressable
+              key={o.label}
+              accessibilityRole="button"
+              onPress={() => {
+                close();
+                // Let the sheet close before the action opens another modal or navigates.
+                setTimeout(o.onPress, 50);
+              }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space.lg,
+                marginHorizontal: space.sm,
+                paddingHorizontal: space.lg,
+                paddingVertical: 14,
+                borderRadius: radius.md,
+                backgroundColor: pressed ? t.cardPressed : "transparent",
+              })}
+            >
+              {o.icon ? <Ionicons name={o.icon} size={20} color={o.destructive ? t.danger : t.text} /> : null}
+              <Text weight="600" style={o.destructive ? { color: t.danger } : undefined}>
+                {o.label}
+              </Text>
+            </Pressable>
+          ))}
+        </Glass>
+        <Pressable onPress={close} accessibilityRole="button" style={{ marginTop: space.sm }}>
+          <Glass radius={radius.pill} interactive style={{ paddingVertical: 15, alignItems: "center" }}>
+            <Text weight="700">Cancel</Text>
+          </Glass>
         </Pressable>
       </View>
     </Modal>

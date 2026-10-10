@@ -1,8 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { create } from "zustand";
 import { radius, space, useTheme } from "../theme";
+import { Glass } from "./glass";
 import { Text } from "./ui";
 
 interface ToastState {
@@ -33,13 +35,12 @@ export function ToastHost() {
     <View
       pointerEvents="none"
       accessibilityLiveRegion="polite"
-      style={{ position: "absolute", left: space.lg, right: space.lg, bottom: insets.bottom + 72, alignItems: "center" }}
+      style={{ position: "absolute", left: space.lg, right: space.lg, top: insets.top + space.sm, alignItems: "center" }}
     >
-      <View style={{ backgroundColor: t.accent, borderRadius: radius.sm, paddingHorizontal: space.lg, paddingVertical: space.md }}>
-        <Text weight="600" style={{ color: t.accentText }}>
-          {message}
-        </Text>
-      </View>
+      <Glass radius={radius.pill} style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.md }}>
+        <Ionicons name="checkmark-circle" size={18} color={t.accent} />
+        <Text weight="600">{message}</Text>
+      </Glass>
     </View>
   );
 }

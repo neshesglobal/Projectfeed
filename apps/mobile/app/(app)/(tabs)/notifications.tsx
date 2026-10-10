@@ -9,8 +9,10 @@ import { api, errorMessage } from "../../../src/api/client";
 import { useNotifications } from "../../../src/api/hooks";
 import { TabHeader } from "../../../src/components/HomeHeader";
 import { PostCard } from "../../../src/components/PostCard";
-import { Avatar, EmptyState, ErrorView, Loading, Screen, Text, TopTabs } from "../../../src/components/ui";
-import { space, useTheme } from "../../../src/theme";
+import { Card } from "../../../src/components/glass";
+import { Avatar, EmptyState, ErrorView, IconButton, Loading, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
 
 const VERBS: Record<string, string> = {
   like: "liked your post",
@@ -33,19 +35,10 @@ function GroupedNotification({ n }: { n: NotificationItem }) {
     else router.push(`/user/${first.handle}`);
   };
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        gap: space.md,
-        padding: space.lg,
-        borderBottomWidth: 1,
-        borderBottomColor: t.border,
-        backgroundColor: pressed ? t.bgElevated : n.read ? t.bg : t.bgElevated,
-      })}
-    >
-      <View style={{ width: 40, alignItems: "flex-end" }}>
-        <Ionicons name={icon} size={28} color={color} />
+    <View style={{ paddingHorizontal: space.md, paddingTop: space.sm }}>
+    <Card onPress={onPress} style={{ flexDirection: "row", gap: space.md, borderRadius: radius.xl, borderColor: n.read ? t.cardBorder : `${t.accent}88` }}>
+      <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: `${color}22` }}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
       <View style={{ flex: 1, gap: space.sm }}>
         <View style={{ flexDirection: "row", gap: 6 }}>
@@ -63,7 +56,8 @@ function GroupedNotification({ n }: { n: NotificationItem }) {
           </Text>
         ) : null}
       </View>
-    </Pressable>
+    </Card>
+    </View>
   );
 }
 
@@ -72,6 +66,7 @@ export default function Notifications() {
   const q = useNotifications(tab);
   const qc = useQueryClient();
   const t = useTheme();
+  const insets = useSafeAreaInsets();
 
   // Opening the tab marks everything read and clears the badge.
   useFocusEffect(
@@ -84,7 +79,7 @@ export default function Notifications() {
 
   return (
     <Screen>
-      <TabHeader title="Notifications" right={<Ionicons name="settings-outline" size={22} color={t.text} onPress={() => router.push("/settings")} accessibilityLabel="Settings" />}>
+      <TabHeader title="Activity" right={<IconButton name="settings-outline" glass size={18} label="Settings" onPress={() => router.push("/settings")} />}>
         <TopTabs
           tabs={[
             { key: "all", label: "All" },
@@ -97,6 +92,7 @@ export default function Notifications() {
       </TabHeader>
       <FlashList
         data={items}
+        contentContainerStyle={{ paddingBottom: tabBarSpace(insets.bottom) + 24 }}
         keyExtractor={(n) => n.id}
         getItemType={(n) => (n.type === "reply" || n.type === "mention" || n.type === "quote" ? "post" : "grouped")}
         renderItem={({ item }) =>

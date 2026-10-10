@@ -73,7 +73,7 @@ export default function Lists() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => (addUserId ? void toggleMember(item) : router.push(`/lists/${item.id}`))}
-            style={({ pressed }) => ({ padding: space.lg, flexDirection: "row", alignItems: "center", gap: space.md, backgroundColor: pressed ? t.bgElevated : t.bg })}
+            style={({ pressed }) => ({ padding: space.lg, flexDirection: "row", alignItems: "center", gap: space.md, backgroundColor: pressed ? t.cardPressed : "transparent" })}
           >
             <View style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: t.accent, alignItems: "center", justifyContent: "center" }}>
               <Text weight="800" size="xl" style={{ color: t.accentText }}>

@@ -13,6 +13,8 @@ import { uploadWithProgress, waitUntilReady, type LocalAsset } from "../../../sr
 import { QuotedPost, openReport } from "../../../src/components/PostCard";
 import { useSheet } from "../../../src/components/Sheet";
 import { toast } from "../../../src/components/Toast";
+import { LinearGradient } from "expo-linear-gradient";
+import { Glass } from "../../../src/components/glass";
 import { Avatar, Button, Header, IconButton, Loading, Screen, Text } from "../../../src/components/ui";
 import { conversationTitle } from "../../../src/lib/format";
 import { useAuth } from "../../../src/store/auth";
@@ -50,18 +52,22 @@ function Bubble({ m, mine, onLongPress }: { m: Message; mine: boolean; onLongPre
             </Text>
           </View>
         ) : m.text ? (
-          <View
+          <LinearGradient
+            colors={mine ? t.accentGradient : [t.card, t.card]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
-              backgroundColor: mine ? t.accent : t.bgInput,
-              borderRadius: radius.lg,
-              borderBottomRightRadius: mine ? 4 : radius.lg,
-              borderBottomLeftRadius: mine ? radius.lg : 4,
-              paddingHorizontal: space.md,
-              paddingVertical: space.sm,
+              borderRadius: 20,
+              borderBottomRightRadius: mine ? 6 : 20,
+              borderBottomLeftRadius: mine ? 20 : 6,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderWidth: mine ? 0 : 1,
+              borderColor: t.cardBorder,
             }}
           >
-            <Text style={{ color: mine ? t.accentText : t.text }}>{m.text}</Text>
-          </View>
+            <Text style={{ color: mine ? "#fff" : t.text, lineHeight: 20 }}>{m.text}</Text>
+          </LinearGradient>
         ) : null}
         <Text muted size="xs" style={{ alignSelf: mine ? "flex-end" : "flex-start" }}>
           {formatRelativeTime(m.createdAt)}
@@ -243,7 +249,7 @@ export default function ConversationScreen() {
             <IconButton name="close" label="Cancel edit" size={16} onPress={() => { setEditing(null); setText(""); }} />
           </View>
         ) : null}
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm, padding: space.sm, paddingBottom: insets.bottom + space.sm, borderTopWidth: 1, borderTopColor: t.border }}>
+        <Glass radius={radius.xl} style={{ flexDirection: "row", alignItems: "flex-end", gap: space.xs, padding: 6, marginHorizontal: space.sm, marginBottom: insets.bottom + space.sm }}>
           <IconButton name="image-outline" label="Attach photo or video" color={t.accent} onPress={() => void attach()} />
           <TextInput
             value={text}
@@ -252,10 +258,10 @@ export default function ConversationScreen() {
             placeholderTextColor={t.textMuted}
             multiline
             accessibilityLabel="Message"
-            style={{ flex: 1, backgroundColor: t.bgInput, borderRadius: radius.lg, paddingHorizontal: space.md, paddingVertical: space.sm, color: t.text, maxHeight: 120, fontSize: 15 }}
+            style={{ flex: 1, paddingHorizontal: space.sm, paddingVertical: 10, color: t.text, maxHeight: 120, fontSize: 15 }}
           />
-          <IconButton name="send" label="Send" color={text.trim() ? t.accent : t.textMuted} onPress={() => void submit()} disabled={!text.trim() || send.isPending} />
-        </View>
+          <IconButton name="arrow-up-circle" size={30} label="Send" color={text.trim() ? t.accent : t.textMuted} onPress={() => void submit()} disabled={!text.trim() || send.isPending} />
+        </Glass>
       </KeyboardAvoidingView>
     </Screen>
   );

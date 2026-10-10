@@ -4,9 +4,10 @@ import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCount } from "@projectfeed/shared";
 import { api } from "../../src/api/client";
+import { Glass } from "../../src/components/glass";
 import { Avatar, Divider, NameLine, Text, type IconName } from "../../src/components/ui";
 import { useAuth } from "../../src/store/auth";
-import { space, useTheme } from "../../src/theme";
+import { radius, space, useTheme } from "../../src/theme";
 
 /** X's left drawer: profile summary and navigation to secondary screens. */
 export default function AccountMenu() {
@@ -26,16 +27,21 @@ export default function AccountMenu() {
       accessibilityRole="button"
       style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.lg, paddingVertical: space.md, opacity: pressed ? 0.6 : 1 })}
     >
-      <Ionicons name={icon} size={24} color={t.text} />
-      <Text weight="700" size="xl">
+      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icon} size={19} color={t.accent} />
+      </View>
+      <Text weight="700" size="lg">
         {label}
       </Text>
     </Pressable>
   );
 
   return (
-    <View style={{ flex: 1, flexDirection: "row" }}>
-      <View style={{ width: "80%", maxWidth: 340, backgroundColor: t.bg, paddingTop: insets.top + space.lg, paddingHorizontal: space.xl, paddingBottom: insets.bottom + space.lg }}>
+    <View style={{ flex: 1, flexDirection: "row", backgroundColor: t.overlay }}>
+      <Glass
+        radius={radius.xl}
+        style={{ width: "82%", maxWidth: 340, marginLeft: space.sm, marginTop: insets.top + space.sm, marginBottom: insets.bottom + space.sm, paddingTop: space.xl, paddingHorizontal: space.xl, paddingBottom: space.lg }}
+      >
         <ScrollView contentContainerStyle={{ gap: space.xs }}>
           <Avatar user={me} size={44} onPress={() => go(`/user/${me.handle}`)} />
           <View style={{ marginTop: space.sm }}>
@@ -69,8 +75,8 @@ export default function AccountMenu() {
             }}
           />
         </ScrollView>
-      </View>
-      <Pressable style={{ flex: 1, backgroundColor: t.overlay }} onPress={() => router.back()} accessibilityLabel="Close menu" />
+      </Glass>
+      <Pressable style={{ flex: 1 }} onPress={() => router.back()} accessibilityLabel="Close menu" />
     </View>
   );
 }
