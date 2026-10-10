@@ -40,7 +40,7 @@ Inspired by Apple's Liquid Glass, and deliberately unlike X's flat black-and-whi
   - Android: a tinted translucent fill, because live blur is costly there.
 - **Content is frosted, not blurred:** posts, trends and suggestion cards are translucent rounded cards with a specular edge. This follows Apple's guidance to keep glass on the navigation layer, and keeps long feeds smooth.
 - **Shapes and type:** large bold titles, concentric radii, pill chips with a glowing violet active state, gradient primary buttons.
-- **Feed density:** Compact by default (about 4 text posts per screen; repost and "why you're seeing this" labels fold into the meta line; view counts only on the post page). Comfortable is available under Settings → Appearance.
+- **Feed density:** Compact by default (about 4 text posts per screen; repost and "why you're seeing this" labels fold into the meta line; view counts only on the post page). Dense (one continuous glass panel, about 5 per screen) and Comfortable are available under Settings → Appearance.
 - **Gold is reserved for the ID-verified badge.**
 - **Tokens:** all in `apps/mobile/src/theme/index.ts`; primitives in `src/components/glass.tsx`.
 

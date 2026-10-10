@@ -4,11 +4,11 @@ import { kv } from "../lib/storage";
 /** "dim" is a legacy value from the first design; it now resolves to dark. */
 export type ThemePref = "system" | "light" | "dim" | "dark";
 
-export type Density = "compact" | "comfortable";
+export type Density = "dense" | "compact" | "comfortable";
 
 interface Persisted {
   theme: ThemePref;
-  /** Feed density. Compact fits ~4 text posts per screen; Comfortable is roomier. */
+  /** Feed density: Dense ≈5 text posts per screen (one glass panel), Compact ≈4 (cards), Comfortable is roomier. */
   density: Density;
   homeTab: string;
   heroDismissed: boolean;

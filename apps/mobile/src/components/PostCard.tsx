@@ -92,9 +92,9 @@ function ActionButton({
   );
 }
 
-export function PostActions({ post, large, compact }: { post: Post; large?: boolean; compact?: boolean }) {
+export function PostActions({ post, large, compact, dense }: { post: Post; large?: boolean; compact?: boolean; dense?: boolean }) {
   const t = useTheme();
-  const c = compact && !large;
+  const c = (compact || dense) && !large;
   const like = useToggleLike();
   const repost = useToggleRepost();
   const bookmark = useToggleBookmark();
@@ -113,7 +113,7 @@ export function PostActions({ post, large, compact }: { post: Post; large?: bool
   };
 
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: large ? space.md : c ? 6 : space.sm, marginBottom: c ? -4 : 0, marginHorizontal: -10 }}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: large ? space.md : dense ? 2 : c ? 6 : space.sm, marginBottom: dense ? -6 : c ? -4 : 0, marginHorizontal: -10 }}>
       <ActionButton
         compact={c}
         icon="chatbubble-outline"
@@ -248,6 +248,7 @@ export const PostCard = memo(function PostCard({
   threadLineAbove,
   threadLineBelow,
   surface = "feed",
+  segment,
 }: {
   post: Post;
   repostedBy?: UserSummary | null;
@@ -255,10 +256,14 @@ export const PostCard = memo(function PostCard({
   pinned?: boolean;
   threadLineAbove?: boolean;
   threadLineBelow?: boolean;
+  /** Position inside a continuous dense panel ("first" gets the rounded top). */
+  segment?: "first" | "middle";
   surface?: string;
 }) {
   const t = useTheme();
-  const compact = usePrefs((st) => st.density) === "compact";
+  const density = usePrefs((st) => st.density);
+  // Thread and notification surfaces keep separate cards; "dense" applies to timelines only.
+  const compact = density !== "comfortable";
   const menu = usePostMenu();
   const goProfile = () => {
     track({ type: "click_profile", postId: post.id, surface });
@@ -274,6 +279,77 @@ export const PostCard = memo(function PostCard({
   const contextIcon: React.ComponentProps<typeof Ionicons>["name"] = pinned ? "pin" : repostedBy ? "repeat" : "sparkles";
   // Inline label for compact mode: the icon carries the verb, so a repost shows just the reposter's first name.
   const shortContext = pinned ? "Pinned" : repostedBy ? repostedBy.displayName.split(" ")[0] : reason ?? "";
+
+  if (density === "dense" && segment) {
+    // One continuous glass panel: rows share a frosted background, separated by hairlines.
+    // Text sits beside the avatar and name · handle · time share one line (≈5 text posts per screen).
+    const first = segment === "first";
+    return (
+      <View style={{ paddingHorizontal: space.md, paddingTop: first ? space.xs : 0 }}>
+        <Pressable
+          onPress={goPost}
+          accessibilityHint="Opens the post"
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            gap: 10,
+            paddingHorizontal: 14,
+            paddingTop: 12,
+            paddingBottom: 10,
+            backgroundColor: pressed ? t.cardPressed : t.card,
+            borderColor: t.cardBorder,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderTopWidth: first ? 1 : 0,
+            borderBottomWidth: 1,
+            borderBottomColor: t.border,
+            borderTopLeftRadius: first ? radius.lg : 0,
+            borderTopRightRadius: first ? radius.lg : 0,
+          })}
+        >
+          <Avatar user={post.author} size={36} onPress={goProfile} />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <View style={{ flexShrink: 1 }}>
+                <NameLine user={post.author} onPress={goProfile} />
+              </View>
+              <Text muted size="sm" numberOfLines={1} style={{ flexShrink: 2 }}>
+                @{post.author.handle}
+              </Text>
+              <Text muted size="sm" style={{ flexShrink: 0 }}>
+                · {formatRelativeTime(post.createdAt)}
+              </Text>
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={() => menu(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel="More options">
+                <Ionicons name="ellipsis-horizontal" size={16} color={t.textMuted} />
+              </Pressable>
+            </View>
+            {context ? (
+              <View accessibilityLabel={context} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 }}>
+                <Ionicons name={contextIcon} size={11} color={t.accent} />
+                <Text size="xs" weight="600" numberOfLines={1} style={{ color: t.accent }}>
+                  {context}
+                </Text>
+              </View>
+            ) : null}
+            {post.replyTo ? (
+              <Text muted size="sm">
+                Replying to <Text size="sm" weight="600" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
+              </Text>
+            ) : null}
+            {post.text ? (
+              <View style={{ marginTop: 2 }}>
+                <RichText text={post.text} postId={post.id} />
+              </View>
+            ) : null}
+            <MediaGrid media={post.media} postId={post.id} surface={surface} />
+            {post.poll ? <PollView post={post} /> : null}
+            {post.quote ? <QuotedPost post={post.quote} /> : null}
+            <PostActions post={post} dense />
+          </View>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={{ paddingHorizontal: space.md, paddingTop: threadLineAbove ? 0 : compact ? 6 : space.sm }}>
@@ -326,6 +402,6 @@ export const PostCard = memo(function PostCard({
   );
 });
 
-export function FeedItemCard({ item, surface }: { item: FeedItem; surface?: string }) {
-  return <PostCard post={item.post} repostedBy={item.repostedBy} reason={item.reason} surface={surface} />;
+export function FeedItemCard({ item, surface, segment }: { item: FeedItem; surface?: string; segment?: "first" | "middle" }) {
+  return <PostCard post={item.post} repostedBy={item.repostedBy} reason={item.reason} surface={surface} segment={segment} />;
 }

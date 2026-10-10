@@ -71,8 +71,13 @@ export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, 
   }).current;
 
   const renderItem = useCallback(
-    ({ item }: { item: Row }) => (item.kind === "post" ? <FeedItemCard item={item.item} surface={surface} /> : <Suggestions users={item.users} />),
-    [surface],
+    ({ item, index }: { item: Row; index: number }) =>
+      item.kind === "post" ? (
+        <FeedItemCard item={item.item} surface={surface} segment={index === 0 || rows[index - 1]?.kind !== "post" ? "first" : "middle"} />
+      ) : (
+        <Suggestions users={item.users} />
+      ),
+    [surface, rows],
   );
 
   return (
