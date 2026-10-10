@@ -32,7 +32,7 @@ export const usePrefs = create<PrefsState>((set, get) => {
   };
   return {
     theme: "system",
-    density: "compact",
+    density: "dense",
     homeTab: "for-you",
     heroDismissed: false,
     setTheme: (theme) => save({ theme }),

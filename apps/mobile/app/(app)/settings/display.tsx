@@ -60,7 +60,7 @@ export default function Display() {
       <Group>
         {(
           [
-            ["dense", "Dense", "Most posts per screen, one continuous panel"],
+            ["dense", "Dense (default)", "Most posts per screen, one continuous panel"],
             ["compact", "Compact", "Separate glass cards, about 4 posts per screen"],
             ["comfortable", "Comfortable", "Roomier cards, repost labels as pills, view counts"],
           ] as const
