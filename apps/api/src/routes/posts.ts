@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import {
   createPostSchema,
+  detectLanguage,
   editPostSchema,
   eventsSchema,
   extractEntities,
@@ -81,9 +82,10 @@ const postRoutes: FastifyPluginAsync = async (app) => {
         if (hasVideo && owned.length > 1) throw badRequest("A post can have one video, or up to 4 photos");
       }
       await tx`
-        INSERT INTO posts (id, author_id, text, reply_to_id, reply_to_author_id, quote_of_id, conversation_id, reply_audience, has_video)
+        INSERT INTO posts (id, author_id, text, reply_to_id, reply_to_author_id, quote_of_id, conversation_id, reply_audience, has_video, lang)
         VALUES (${id}, ${me.id}, ${input.text}, ${parent?.id ?? null}, ${parent?.author.id ?? null},
-                ${input.quoteOfId ?? null}, ${parent?.conversationId ?? id}, ${input.replyAudience}, ${hasVideo})`;
+                ${input.quoteOfId ?? null}, ${parent?.conversationId ?? id}, ${input.replyAudience}, ${hasVideo},
+                ${detectLanguage(input.text)})`;
       for (const [i, mid] of input.mediaIds.entries()) {
         await tx`INSERT INTO post_media (post_id, media_id, position) VALUES (${id}, ${mid}, ${i})`;
       }
@@ -211,7 +213,8 @@ const postRoutes: FastifyPluginAsync = async (app) => {
       if (p.edit_count >= MAX_EDITS) throw forbidden("Edit limit reached", "EDIT_LIMIT");
       if (!text.trim() && !p.has_media && !p.has_quote) throw badRequest("Post cannot be empty");
       await tx`INSERT INTO post_edits (post_id, text, edited_at) VALUES (${req.params.id}, ${p.text}, now())`;
-      await tx`UPDATE posts SET text = ${text}, edited_at = now(), edit_count = edit_count + 1 WHERE id = ${req.params.id}`;
+      await tx`UPDATE posts SET text = ${text}, lang = ${detectLanguage(text)}, edited_at = now(), edit_count = edit_count + 1
+               WHERE id = ${req.params.id}`;
       await tx`DELETE FROM post_tags WHERE post_id = ${req.params.id}`;
       // Mentions only grow on edit: we never retract a notification someone already received.
       await writeEntities(tx, req.params.id, me.id, text);

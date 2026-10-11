@@ -16,6 +16,8 @@ const USERS = [
   { handle: "tf_carlos", name: "Carlos Mendes", company: "Atlas Trade Finance", role: "Structured TF", sectors: ["Trade Finance"], bio: "LCs, SBLCs, and why your MT799 isn't a payment." },
   { handle: "grainwatch", name: "Sofia Petrova", company: "Black Sea Agri", role: "Analyst", sectors: ["Agriculture", "Fertilisers"], bio: "Wheat, corn, urea. Black Sea flows." },
   { handle: "lme_lena", name: "Lena Fischer", company: "Ruhr Metals", role: "Base metals trader", sectors: ["Base Metals"], bio: "Copper, aluminium, warrants & cancellations." },
+  { handle: "rajesh_mundra", name: "Rajesh Kumar", company: "Kutch Petro Traders", role: "Broker, Mundra", sectors: ["Petroleum", "Gold & Precious Metals"], bio: "डीज़ल, फ़्यूल ऑयल और बुलियन। मुंद्रा और मुंबई।" },
+  { handle: "kavya_agri", name: "Kavya Subramanian", company: "Coromandel Agro Exports", role: "Export manager", sectors: ["Agriculture"], bio: "அரிசி மற்றும் பருப்பு ஏற்றுமதி · Chennai" },
   { handle: "lng_omar", name: "Omar Haddad", company: "Gulf Gas Partners", role: "LNG originator", sectors: ["Gas & LNG"], bio: "JKM vs TTF, every day." },
 ];
 
@@ -27,6 +29,9 @@ const POSTS: [string, string][] = [
   ["grainwatch", "Black Sea wheat FOB softening as harvest pressure peaks. Egypt tender results this week will set tone. #wheat"],
   ["lme_lena", "LME copper cancelled warrants jumped overnight — watch the backwardation. #copper"],
   ["lng_omar", "JKM–TTF spread narrowing; fewer US cargoes diverting to Asia. #LNG"],
+  ["rajesh_mundra", "मुंद्रा पोर्ट पर डीज़ल की माँग इस हफ़्ते तेज़ रही। EN590 के खरीदार अब भी एडवांस नहीं, LC पर ही भुगतान की बात कर रहे हैं। #EN590 #India"],
+  ["kavya_agri", "சென்னை துறைமுகத்தில் அரிசி ஏற்றுமதி கப்பல்கள் வரிசையில் காத்திருக்கின்றன. டெமரேஜ் செலவு அதிகரிக்கிறது. #rice #shipping"],
+  ["rajesh_mundra", "सोने पर आयात शुल्क घटने के बाद मुंबई के ज़वेरी बाज़ार में रौनक लौट आई है। #gold #भारत"],
   ["amara_fuel", "Jet A1 premiums in Rotterdam holding firm despite lower crude. Airline hedging season. #jetfuel"],
   ["hk_bullion", "Good delivery bars only. If your seller can't name the refiner and assay, there's no deal. #gold #DD"],
   ["priya_freight", "MR rates TC2 up 12% w/w. Tonnage tight in NWE. #tankers #shipping"],

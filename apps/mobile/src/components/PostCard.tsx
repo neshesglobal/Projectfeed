@@ -18,6 +18,7 @@ import { useAuth } from "../store/auth";
 import { usePrefs } from "../store/prefs";
 import { space, useTheme, radius } from "../theme";
 import { MediaGrid } from "./MediaGrid";
+import { TranslatePost } from "./TranslatePost";
 import { PollView } from "./PollView";
 import { RichText } from "./RichText";
 import { useSheet, type SheetOption } from "./Sheet";
@@ -355,6 +356,7 @@ export const PostCard = memo(function PostCard({
             {post.text ? (
               <View style={{ marginTop: 2 }}>
                 <RichText text={post.text} postId={post.id} />
+                <TranslatePost post={post} />
               </View>
             ) : null}
             <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
@@ -406,6 +408,7 @@ export const PostCard = memo(function PostCard({
         {post.text ? (
           <View style={{ marginTop: compact ? 6 : space.sm }}>
             <RichText text={post.text} postId={post.id} />
+            <TranslatePost post={post} />
           </View>
         ) : null}
         <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />

@@ -19,6 +19,7 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 | Photos | Up to 4 per post, camera capture, image descriptions (alt text), EXIF/GPS stripped, WebP re-encode, full-screen viewer with pinch-to-zoom and double-tap zoom |
 | Video | Upload from the library or camera (up to 10 minutes / 512MB) with live upload progress; server transcodes to H.264/AAC MP4 (720p-class, faststart), generates a poster and strips all metadata including location; inline autoplay (muted, one at a time, the most visible card) with duration countdown and a sound toggle; video in DMs |
 | Reels | Full-screen vertical swipe feed (own tab, and opened by tapping any video), ranked by watch completion and average watch time, then engagement, freshness, portrait format and author diversity; tap to pause, double-tap to like, action rail, progress bar, neighbours preloaded; watch time reported per view |
+| Translation | **"Translate post"** on any post in another language: English plus the 22 scheduled Indian languages, chosen in **Settings → Language** (default: the phone's language). Tickers, #tags (including Indic tags like #भारत), @mentions and links are never translated. Cached per post and language, with a daily spend cap. Google Cloud Translation adapter; demo translations locally. See `docs/TRANSLATION.md` |
 | Engagement | Likes, bookmarks, view counts, engagement lists, share, "Not interested" |
 | Notifications | Grouped ("A and 3 others liked…"), All / Verified / Mentions tabs, unread badges |
 | Search | Posts (Top/Latest/Media, operators `from:`, `filter:media`, `min_faves:`), people, typeahead, trends counted by distinct authors |
@@ -98,7 +99,7 @@ The seed creates one staff account per role, all with the password `projectfeed-
 
 ```bash
 createdb projectfeed_test
-pnpm --filter @projectfeed/api test        # 70 integration tests against a real Postgres (and real ffmpeg)
+pnpm --filter @projectfeed/api test        # 83 integration tests against a real Postgres (and real ffmpeg)
 pnpm typecheck                              # API, shared, mobile and admin
 ```
 

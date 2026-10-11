@@ -5,7 +5,8 @@ export const URL_WEIGHT = 23;
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"']+/gi;
 const MENTION_RE = /(^|[^\w@])@([A-Za-z0-9_]{1,15})\b/g;
-const HASHTAG_RE = /(^|[^\w#&])#([\p{L}\p{N}_]*[\p{L}_][\p{L}\p{N}_]*)/gu;
+// \p{M} keeps combining marks (Indic vowel signs and viramas) inside a tag: #भारत, #தமிழ், #ਪੰਜਾਬ.
+const HASHTAG_RE = /(^|[^\w#&])#([\p{L}\p{M}\p{N}_]*[\p{L}_][\p{L}\p{M}\p{N}_]*)/gu;
 const CASHTAG_RE = /(^|[^\w$])\$([A-Za-z]{1,6}(?:[._][A-Za-z]{1,2})?)\b/g;
 
 /** X-style weighted length: every URL counts as 23, CJK and emoji count as 2. */

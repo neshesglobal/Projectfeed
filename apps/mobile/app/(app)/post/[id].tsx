@@ -10,6 +10,7 @@ import { MediaGrid } from "../../../src/components/MediaGrid";
 import { PollView } from "../../../src/components/PollView";
 import { PostActions, PostCard, QuotedPost, unavailableText, usePostMenu } from "../../../src/components/PostCard";
 import { RichText } from "../../../src/components/RichText";
+import { TranslatePost } from "../../../src/components/TranslatePost";
 import { Card, Glass } from "../../../src/components/glass";
 import { Avatar, Divider, ErrorView, Header, IconButton, Loading, NameLine, Screen, Text } from "../../../src/components/ui";
 import { postVisible } from "../../../src/lib/events";
@@ -50,6 +51,7 @@ function FocalPost({ post }: { post: Post }) {
         </Text>
       ) : null}
       {post.text ? <RichText text={post.text} size="lg" postId={post.id} /> : null}
+      <TranslatePost post={post} size="lg" />
       <MediaGrid media={post.media} postId={post.id} sensitive={post.sensitive} />
       {post.poll ? <PollView post={post} /> : null}
       {post.quote ? <QuotedPost post={post.quote} /> : null}

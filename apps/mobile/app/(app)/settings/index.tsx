@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
+import { languageByCode } from "@projectfeed/shared";
 import { useStanding } from "../../../src/api/hooks";
+import { useTranslateTarget } from "../../../src/lib/language";
 import { Group, Header, Screen, Text, type IconName } from "../../../src/components/ui";
 import { space, useTheme } from "../../../src/theme";
 
@@ -29,6 +31,7 @@ function Row({ icon, title, body, path, first, badge }: { icon: IconName; title:
 
 export default function Settings() {
   const standing = useStanding().data;
+  const lang = languageByCode(useTranslateTarget());
   const standingBody =
     standing?.status === "suspended" ? "Suspended · read-only" : standing?.status === "frozen" ? "Under review" : "Good standing · decisions and appeals";
   return (
@@ -41,6 +44,7 @@ export default function Settings() {
         <Row icon="shield-checkmark-outline" title="Verification" body="Identity verification status" path="/settings/verification" />
         <Row icon="lock-closed-outline" title="Privacy and safety" body="Protected posts, blocked and muted accounts" path="/settings/privacy" />
         <Row icon="volume-mute-outline" title="Muted words" body="Hide posts containing words, #hashtags or $cashtags" path="/settings/muted-words" />
+        <Row icon="language-outline" title="Language" body={`Translate posts into ${lang?.native ?? "English"}`} path="/settings/language" />
         <Row icon="color-palette-outline" title="Appearance" body="Midnight, Dark or Daylight · feed density" path="/settings/display" />
         <Row icon="information-circle-outline" title="About" body="Terms, privacy policy, version" path="/settings/about" />
         </Group>

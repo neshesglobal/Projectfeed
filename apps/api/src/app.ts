@@ -11,6 +11,7 @@ import { TokenService, makeRequireVerified } from "./lib/auth";
 import { LocalStorage, type Storage } from "./lib/storage";
 import { VideoProcessor } from "./services/video";
 import { createScanner, type MediaScanner } from "./services/screening";
+import { createTranslator, type Translator } from "./services/translate";
 import { StaffTokens, type StaffRole } from "./lib/staff";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
@@ -25,6 +26,7 @@ import safetyRoutes from "./routes/safety";
 import settingsRoutes from "./routes/settings";
 import moderationRoutes from "./routes/moderation";
 import adminRoutes from "./routes/admin";
+import translateRoutes from "./routes/translate";
 
 export interface AppCtx {
   sql: Sql;
@@ -33,6 +35,8 @@ export interface AppCtx {
   tokens: TokenService;
   video: VideoProcessor;
   scanner: MediaScanner;
+  /** Post translation provider; null when translation is switched off. */
+  translator: Translator | null;
   staffTokens: StaffTokens;
   /** preHandler for every write endpoint (auth + future KYC gate). */
   requireVerified: preHandlerHookHandler;
@@ -53,7 +57,7 @@ const allowed = (list: RegExp[], url: string) => list.some((r) => r.test(url.spl
 export async function buildApp(
   cfg: Config,
   sql: Sql,
-  opts: { logger?: boolean; scanner?: MediaScanner } = {},
+  opts: { logger?: boolean; scanner?: MediaScanner; translator?: Translator | null } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? false,
@@ -71,6 +75,7 @@ export async function buildApp(
     tokens: new TokenService(cfg),
     video: new VideoProcessor(sql, storage, scanner),
     scanner,
+    translator: opts.translator === undefined ? createTranslator(cfg.isProd) : opts.translator,
     staffTokens: new StaffTokens(cfg),
     requireVerified: makeRequireVerified(cfg) as preHandlerHookHandler,
   };
@@ -162,6 +167,7 @@ export async function buildApp(
   await app.register(safetyRoutes, { prefix: "/v1" });
   await app.register(settingsRoutes, { prefix: "/v1" });
   await app.register(moderationRoutes, { prefix: "/v1" });
+  await app.register(translateRoutes, { prefix: "/v1" });
   await app.register(adminRoutes, { prefix: "/admin/v1" });
 
   return app;

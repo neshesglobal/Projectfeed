@@ -90,6 +90,8 @@ export interface Post {
   counts: PostCounts;
   viewer: PostViewerState;
   deleted: boolean;
+  /** Detected language (BCP-47), or null if unknown. Drives the "Translate post" button. */
+  lang: string | null;
   /** Media is behind a sensitive-content interstitial (moderator label). */
   sensitive?: boolean;
   unavailable?: "deleted" | "removed" | "suspended" | "protected" | "blocked";
@@ -217,4 +219,20 @@ export interface AccountStanding {
   strikes: number;
   notices: ModerationNotice[];
   unread: number;
+}
+
+export interface PostTranslation {
+  postId: string;
+  text: string;
+  sourceLang: string | null;
+  targetLang: string;
+  /** The post was already in the target language: `text` is the original. */
+  sameLanguage: boolean;
+  provider: string;
+}
+
+export interface TranslationConfig {
+  enabled: boolean;
+  provider: string;
+  languages: string[];
 }

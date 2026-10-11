@@ -116,6 +116,7 @@ interface PostRow extends UserRow {
   deleted_at: Date | null;
   removed_at: Date | null;
   sensitive: boolean;
+  lang: string | null;
   conversation_id: string;
   reply_to_id: string | null;
   reply_to_handle: string | null;
@@ -232,7 +233,7 @@ export async function hydratePosts(
   const v = viewerId ?? ANON;
 
   const rows = await ctx.db<PostRow[]>`
-    SELECT p.id AS post_id, p.author_id, p.text, p.created_at, p.edited_at, p.edit_count, p.deleted_at, p.removed_at, p.sensitive,
+    SELECT p.id AS post_id, p.author_id, p.text, p.created_at, p.edited_at, p.edit_count, p.deleted_at, p.removed_at, p.sensitive, p.lang,
            p.conversation_id, p.reply_to_id, ru.handle::text AS reply_to_handle, p.quote_of_id, p.reply_audience,
            p.reply_count, p.repost_count, p.quote_count, p.like_count, p.bookmark_count, p.view_count,
            u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected,
@@ -300,6 +301,7 @@ export async function hydratePosts(
       },
       viewer: { liked: r.liked, reposted: r.reposted, bookmarked: r.bookmarked, canReply },
       deleted: !!r.deleted_at,
+      lang: unavailable ? null : r.lang,
       ...(r.sensitive && !unavailable ? { sensitive: true } : {}),
       ...(unavailable ? { unavailable } : {}),
     });

@@ -2,6 +2,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import type {
+  PostTranslation,
+  TranslationConfig,
   AccountStanding,
   Conversation,
   FeedItem,
@@ -298,5 +300,21 @@ export function useAppeal() {
   return useMutation({
     mutationFn: (input: { actionId: string; text: string }) => api<{ id: string }>("/me/appeals", { method: "POST", body: input }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["standing"] }),
+  });
+}
+
+// ───────────── Translation ─────────────
+export function useTranslationConfig() {
+  const signedIn = useAuth((s) => s.status === "signedIn");
+  return useQuery({ queryKey: ["translationConfig"], enabled: signedIn, staleTime: 60 * 60_000, queryFn: () => api<TranslationConfig>("/translation/config") });
+}
+
+export function usePostTranslation(post: Pick<Post, "id" | "editCount">, to: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["translation", post.id, post.editCount, to],
+    enabled,
+    staleTime: Infinity,
+    retry: false,
+    queryFn: () => api<PostTranslation>(`/posts/${post.id}/translation${qs({ to })}`),
   });
 }
