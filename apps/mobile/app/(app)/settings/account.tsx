@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Platform, ScrollView, Share } from "react-native";
 import { api, errorMessage } from "../../../src/api/client";
+import { useChangeHandle } from "../../../src/api/hooks";
 import { toast } from "../../../src/components/Toast";
 import { Button, Divider, Header, Screen, Text, TextField } from "../../../src/components/ui";
 import { useAuth } from "../../../src/store/auth";
@@ -12,6 +13,8 @@ export default function Account() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [deletePw, setDeletePw] = useState("");
+  const [handle, setHandle] = useState(me?.handle ?? "");
+  const changeHandle = useChangeHandle();
   const [busy, setBusy] = useState<string | null>(null);
 
   const run = async (key: string, fn: () => Promise<void>) => {
@@ -29,6 +32,27 @@ export default function Account() {
     <Screen>
       <Header title="Your account" subtitle={me ? `@${me.handle}` : undefined} />
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: 80 }}>
+        <Text weight="800" size="lg">
+          Username
+        </Text>
+        <TextField label="Username" value={handle} onChangeText={setHandle} autoCapitalize="none" autoCorrect={false} />
+        <Text muted size="sm">
+          You can change it once every 30 days. Past usernames are shown on your profile under About this account.
+        </Text>
+        <Button
+          title="Change username"
+          variant="outline"
+          loading={changeHandle.isPending}
+          disabled={!handle || handle === me?.handle}
+          onPress={() =>
+            changeHandle.mutate(handle.replace(/^@/, ""), {
+              onSuccess: (u) => toast(`You're now @${u.handle}`),
+              onError: (e) => toast(errorMessage(e)),
+            })
+          }
+        />
+        <Divider style={{ marginVertical: space.md }} />
+
         <Text weight="800" size="lg">
           Change password
         </Text>

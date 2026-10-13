@@ -7,6 +7,7 @@ import { formatCount, type Page, type Post } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
 import { useThread } from "../../../src/api/hooks";
 import { MediaGrid } from "../../../src/components/MediaGrid";
+import { NoteCard } from "../../../src/components/NoteCard";
 import { PollView } from "../../../src/components/PollView";
 import { PostActions, PostCard, QuotedPost, unavailableText, usePostMenu } from "../../../src/components/PostCard";
 import { RichText } from "../../../src/components/RichText";
@@ -53,6 +54,7 @@ function FocalPost({ post }: { post: Post }) {
       {post.text ? <RichText text={post.text} size="lg" postId={post.id} /> : null}
       <TranslatePost post={post} size="lg" />
       <MediaGrid media={post.media} postId={post.id} sensitive={post.sensitive} />
+      <NoteCard post={post} />
       {post.poll ? <PollView post={post} /> : null}
       {post.quote ? <QuotedPost post={post.quote} /> : null}
       <Text muted>

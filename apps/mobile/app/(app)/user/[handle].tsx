@@ -5,9 +5,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Linking, Platform, Pressable, Share, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { formatCount, type FeedItem, type Post, type UserProfile } from "@projectfeed/shared";
+import { BADGE_LABEL, formatCount, type FeedItem, type Post, type UserProfile } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
-import { useFollow, useProfile, useRelationshipAction, useUserPosts } from "../../../src/api/hooks";
+import { useAbout, useFollow, useProfile, useRelationshipAction, useUserPosts } from "../../../src/api/hooks";
+import { flag } from "../../../src/lib/country";
 import { LinearGradient } from "expo-linear-gradient";
 import { Card } from "../../../src/components/glass";
 import { Feed } from "../../../src/components/Feed";
@@ -15,7 +16,7 @@ import { MediaTabGrid } from "../../../src/components/MediaTabGrid";
 import { SHARE_BASE, openReport } from "../../../src/components/PostCard";
 import { useSheet, type SheetOption } from "../../../src/components/Sheet";
 import { toast } from "../../../src/components/Toast";
-import { Avatar, Button, EmptyState, ErrorView, IconButton, Loading, Screen, Text, TopTabs, VerifiedBadge } from "../../../src/components/ui";
+import { Avatar, Button, EmptyState, ErrorView, IconButton, Loading, Screen, Text, TopTabs, UserBadges } from "../../../src/components/ui";
 import { useAuth } from "../../../src/store/auth";
 import { radius, space, useTheme } from "../../../src/theme";
 
@@ -80,7 +81,7 @@ function ProfileHeader({ user, tab, setTab }: { user: UserProfile; tab: Tab; set
             <Text weight="800" size="xl">
               {user.displayName}
             </Text>
-            <VerifiedBadge level={user.kycLevel} size={20} />
+            <UserBadges user={user} size={20} />
             {user.isProtected ? <Ionicons name="lock-closed" size={16} color={t.textMuted} style={{ marginLeft: 4 }} /> : null}
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -94,6 +95,20 @@ function ProfileHeader({ user, tab, setTab }: { user: UserProfile; tab: Tab; set
             ) : null}
           </View>
         </View>
+        {user.badge || user.affiliation ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: space.sm }}>
+            {user.badge ? (
+              <Text size="sm" weight="600" style={{ color: t.accent }}>
+                {BADGE_LABEL[user.badge]}
+              </Text>
+            ) : null}
+            {user.affiliation ? (
+              <Text size="sm" muted onPress={() => router.push(`/user/${user.affiliation!.handle}`)}>
+                {user.badge ? "· " : ""}Works at <Text size="sm" weight="600" style={{ color: t.accent }}>{user.affiliation.displayName}</Text>
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         {user.bio ? <Text style={{ marginTop: space.md }}>{user.bio}</Text> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: space.lg, rowGap: 4, marginTop: space.md }}>
           {user.company || user.role ? (
@@ -114,6 +129,7 @@ function ProfileHeader({ user, tab, setTab }: { user: UserProfile; tab: Tab; set
           <Text muted>
             <Ionicons name="calendar-outline" size={14} /> Joined {joined}
           </Text>
+          <AboutLine userId={user.id} />
         </View>
         {user.sectors.length ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: space.md }}>
@@ -219,7 +235,10 @@ export default function ProfileScreen() {
   const menu = () => {
     if (!user) return;
     const url = `${SHARE_BASE}/@${user.handle}`;
-    const opts: SheetOption[] = [{ label: "Share profile", icon: "share-outline", onPress: () => void Share.share(Platform.OS === "ios" ? { url } : { message: url }) }];
+    const opts: SheetOption[] = [
+      { label: "About this account", icon: "information-circle-outline", onPress: () => router.push(`/about/${user.id}`) },
+      { label: "Share profile", icon: "share-outline", onPress: () => void Share.share(Platform.OS === "ios" ? { url } : { message: url }) },
+    ];
     if (user.id !== me?.id && user.viewer) {
       opts.push(
         { label: "Add/remove from Lists", icon: "list-outline" as const, onPress: () => router.push({ pathname: "/lists", params: { addUserId: user.id } }) },
@@ -263,5 +282,20 @@ export default function ProfileScreen() {
         {user ? <IconButton name="ellipsis-horizontal" label="More" glass size={20} onPress={menu} /> : null}
       </View>
     </Screen>
+  );
+}
+
+/** "🇮🇳 Based in India · About this account" — the verified country, tappable for the full panel. */
+function AboutLine({ userId }: { userId: string }) {
+  const t = useTheme();
+  const a = useAbout(userId).data;
+  const c = a?.identity.country ?? (a?.connection.status === "ok" ? a.connection.country : null);
+  return (
+    <Text muted onPress={() => router.push(`/about/${userId}`)} accessibilityRole="link">
+      {c ? `${flag(c.code)} Based in ${c.name} · ` : ""}
+      <Text style={{ color: t.accent }} weight="600">
+        About this account
+      </Text>
+    </Text>
   );
 }

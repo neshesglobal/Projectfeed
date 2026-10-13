@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import { createConversationSchema, sendMessageSchema, type Conversation, type Message } from "@projectfeed/shared";
 import type { Db } from "../db";
 import { requireUser } from "../lib/auth";
-import { badRequest, forbidden, notFound, parse } from "../lib/errors";
+import { AppError, badRequest, forbidden, notFound, parse } from "../lib/errors";
+import { DM_DAILY_LIMIT, band } from "../services/trust";
 import { isId, newId } from "../lib/ids";
 import { hydratePosts, mediaFor, userSummaries, type HydrateCtx } from "../services/hydrate";
 import { idCursor, pageSize } from "../services/timeline";
@@ -143,6 +144,12 @@ const messageRoutes: FastifyPluginAsync = async (app) => {
           return existing.id;
         }
       }
+      // Daily cap on new conversations, by trust band: stops mass unsolicited messaging.
+      const [mine] = await tx<{ trust_score: number; today: number }[]>`
+        SELECT trust_score, (SELECT count(*)::int FROM conversations WHERE created_by = ${me.id} AND created_at > now() - interval '24 hours') AS today
+        FROM users WHERE id = ${me.id}`;
+      const limit = DM_DAILY_LIMIT[band(mine!.trust_score)];
+      if (mine!.today >= limit) throw new AppError(429, "DM_LIMIT", `You can start up to ${limit} new conversations a day`);
       const cid = newId();
       await tx`INSERT INTO conversations (id, title, is_group, dm_key, created_by)
                VALUES (${cid}, ${isGroup ? (input.title ?? null) : null}, ${isGroup}, ${dmKey}, ${me.id})`;

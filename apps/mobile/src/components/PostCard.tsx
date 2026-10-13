@@ -19,6 +19,7 @@ import { usePrefs } from "../store/prefs";
 import { space, useTheme, radius } from "../theme";
 import { MediaGrid } from "./MediaGrid";
 import { TranslatePost } from "./TranslatePost";
+import { NoteCard } from "./NoteCard";
 import { PollView } from "./PollView";
 import { RichText } from "./RichText";
 import { useSheet, type SheetOption } from "./Sheet";
@@ -192,6 +193,7 @@ export function usePostMenu() {
       });
       options.push({ label: "Report post", icon: "flag-outline", destructive: true, onPress: () => openReport("post", post.id) });
     }
+    options.push({ label: "Community Notes", icon: "people-outline", onPress: () => router.push(`/notes/${post.id}`) });
     options.push({
       label: "View post engagements",
       icon: "stats-chart-outline",
@@ -199,6 +201,19 @@ export function usePostMenu() {
     });
     openSheet(options);
   };
+}
+
+/** Disclosure for promotional posts by verified businesses and creators (ASCI influencer guidelines). */
+function PaidPartnership() {
+  const t = useTheme();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+      <Ionicons name="pricetag-outline" size={12} color={t.textMuted} />
+      <Text muted size="xs" weight="600">
+        Paid partnership
+      </Text>
+    </View>
+  );
 }
 
 /** Tombstone copy for posts the viewer can't see. */
@@ -353,6 +368,7 @@ export const PostCard = memo(function PostCard({
                 Replying to <Text size="sm" weight="600" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
               </Text>
             ) : null}
+            {post.paidPartnership ? <PaidPartnership /> : null}
             {post.text ? (
               <View style={{ marginTop: 2 }}>
                 <RichText text={post.text} postId={post.id} />
@@ -360,6 +376,8 @@ export const PostCard = memo(function PostCard({
               </View>
             ) : null}
             <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
+        <NoteCard post={post} />
+            <NoteCard post={post} />
             {post.poll ? <PollView post={post} /> : null}
             {post.quote ? <QuotedPost post={post.quote} /> : null}
             <PostActions post={post} dense />
@@ -405,6 +423,7 @@ export const PostCard = memo(function PostCard({
             Replying to <Text size="sm" weight="600" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
           </Text>
         ) : null}
+        {post.paidPartnership ? <PaidPartnership /> : null}
         {post.text ? (
           <View style={{ marginTop: compact ? 6 : space.sm }}>
             <RichText text={post.text} postId={post.id} />
@@ -412,6 +431,7 @@ export const PostCard = memo(function PostCard({
           </View>
         ) : null}
         <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
+        <NoteCard post={post} />
         {post.poll ? <PollView post={post} /> : null}
         {post.quote ? <QuotedPost post={post.quote} /> : null}
         <PostActions post={post} compact={compact} />

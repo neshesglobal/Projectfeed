@@ -254,7 +254,7 @@ export function UserDetail({ id }: { id: string }) {
   const u = useQuery({
     queryKey: ["user", id],
     queryFn: () =>
-      api<UserRow & { bio: string; following: number; postsCount: number; reports: { open: number; total: number }; history: HistoryItem[]; recentPosts: AdminPost[] | null; postsRestricted: boolean }>(`/users/${id}`),
+      api<UserRow & { bio: string; following: number; postsCount: number; reports: { open: number; total: number }; history: HistoryItem[]; recentPosts: AdminPost[] | null; postsRestricted: boolean; badge: string | null; accountType: string; countries: { id: string | null; phone: string | null; connection: string | null }; subscription: { plan: string; status: string; currentPeriodEnd: string; provider: string } | null; trust?: { score: number; band: string; factors: { label: string; points: number }[] } }>(`/users/${id}`),
   });
   const [modal, setModal] = useState(false);
   const pii = useMutation({ mutationFn: (justification: string) => api<{ email: string; kycLevel: number }>(`/users/${id}/reveal-pii`, { method: "POST", body: { justification } }), onSuccess: () => setModal(false) });
@@ -309,6 +309,7 @@ export function UserDetail({ id }: { id: string }) {
         </div>
       </div>
       <div className="sticky grid">
+        <IdentityPanel d={d} userId={d.id} />
         <div className="panel">
           <div className="panel-head">
             <h2>Account action</h2>
@@ -679,6 +680,120 @@ export function Staff() {
         </button>
         {create.error ? <div className="error">{(create.error as Error).message}</div> : null}
       </form>
+    </div>
+  );
+}
+
+// ───────────────────────────── Identity, badges and plan (account page) ─────────────────────────────
+
+const flagOf = (c: string | null) => (c ? String.fromCodePoint(...[...c].map((x) => 0x1f1e6 + x.charCodeAt(0) - 65)) + " " + c : "—");
+
+function IdentityPanel({
+  d,
+  userId,
+}: {
+  userId: string;
+  d: {
+    kycLevel: number;
+    badge: string | null;
+    countries: { id: string | null; phone: string | null; connection: string | null };
+    subscription: { plan: string; status: string; currentPeriodEnd: string; provider: string } | null;
+    trust?: { score: number; band: string; factors: { label: string; points: number }[] };
+  };
+}) {
+  const can = useCan();
+  const qc = useQueryClient();
+  const [grant, setGrant] = useState({ badge: "public_figure", justification: "" });
+  const [pay, setPay] = useState({ plan: "business", months: 1, reference: "" });
+  const done = (msg: string) => () => {
+    toast(msg);
+    void qc.invalidateQueries({ queryKey: ["user", userId] });
+  };
+  const grantM = useMutation({ mutationFn: (badge: string | null) => api(`/users/${userId}/badge`, { method: "POST", body: { badge, justification: grant.justification } }), onSuccess: done("Badge updated") });
+  const payM = useMutation({ mutationFn: () => api(`/users/${userId}/subscription`, { method: "POST", body: pay }), onSuccess: done("Payment recorded") });
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Identity, badge and plan</h2>
+      </div>
+      <div className="panel-body grid" style={{ gap: 10 }}>
+        <div className="grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          <div>
+            <div className="kpi-label">ID country</div>
+            <div>{d.kycLevel >= 1 ? flagOf(d.countries.id) : "Not verified"}</div>
+          </div>
+          <div>
+            <div className="kpi-label">Phone</div>
+            <div>{flagOf(d.countries.phone)}</div>
+          </div>
+          <div>
+            <div className="kpi-label">Connects from</div>
+            <div>{flagOf(d.countries.connection)}</div>
+          </div>
+        </div>
+        {d.trust ? (
+          <div>
+            <div className="kpi-label">Trust score (private)</div>
+            <div className="row" style={{ gap: 8 }}>
+              <span className="mono" style={{ fontSize: 20, fontWeight: 700 }}>{d.trust.score}</span>
+              <span className={`badge ${d.trust.band === "Limited" ? "red" : d.trust.band === "Fair" ? "gold" : "green"}`}>{d.trust.band}</span>
+            </div>
+            <div className="small muted">{d.trust.factors.map((f) => `${f.label} ${f.points > 0 ? "+" : ""}${f.points}`).join(" · ")}</div>
+          </div>
+        ) : null}
+        <div className="row small">
+          <span className="kpi-label">Badge</span>
+          {d.badge ? <span className="badge blue">{human(d.badge)}</span> : <span className="muted">None</span>}
+          {d.subscription ? (
+            <span className={`badge ${d.subscription.status === "active" && new Date(d.subscription.currentPeriodEnd) > new Date() ? "green" : "red"}`}>
+              {d.subscription.plan} plan · {d.subscription.status} to {fullDate(d.subscription.currentPeriodEnd)} · {d.subscription.provider}
+            </span>
+          ) : null}
+        </div>
+        {can("verifyAccounts") ? (
+          <>
+            <div className="divider" style={{ margin: "4px 0" }} />
+            <div className="kpi-label">Grant badge (never sold)</div>
+            <div className="row">
+              <select className="select" style={{ width: 160 }} value={grant.badge} onChange={(e) => setGrant({ ...grant, badge: e.target.value })}>
+                <option value="public_figure">Public figure</option>
+                <option value="government">Government</option>
+                <option value="news">News organisation</option>
+              </select>
+              <input className="input" style={{ flex: 1, minWidth: 160 }} placeholder="Criteria met / evidence (logged)" value={grant.justification} onChange={(e) => setGrant({ ...grant, justification: e.target.value })} />
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              {d.badge && ["public_figure", "government", "news"].includes(d.badge) ? (
+                <button className="btn sm" disabled={grant.justification.trim().length < 15} onClick={() => grantM.mutate(null)}>
+                  Revoke badge
+                </button>
+              ) : null}
+              <button className="btn sm primary" disabled={grant.justification.trim().length < 15 || grantM.isPending} onClick={() => grantM.mutate(grant.badge)}>
+                Grant
+              </button>
+            </div>
+            <div className="kpi-label">Record payment (manual invoice)</div>
+            <div className="row">
+              <select className="select" style={{ width: 120 }} value={pay.plan} onChange={(e) => setPay({ ...pay, plan: e.target.value })}>
+                <option value="business">Business</option>
+                <option value="creator">Creator</option>
+              </select>
+              <select className="select" style={{ width: 110 }} value={pay.months} onChange={(e) => setPay({ ...pay, months: Number(e.target.value) })}>
+                {[1, 3, 6, 12].map((m) => (
+                  <option key={m} value={m}>
+                    {m} {m === 1 ? "month" : "months"}
+                  </option>
+                ))}
+              </select>
+              <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Invoice / UTR ref" value={pay.reference} onChange={(e) => setPay({ ...pay, reference: e.target.value })} />
+              <button className="btn sm primary" disabled={pay.reference.trim().length < 3 || payM.isPending} onClick={() => payM.mutate()}>
+                Record
+              </button>
+            </div>
+            {grantM.error || payM.error ? <div className="error">{((grantM.error ?? payM.error) as Error).message}</div> : null}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@
 import type { Db } from "../db";
 import { idAtTime } from "../lib/ids";
 import { containsMutedWord, type ViewerFilters } from "../services/timeline";
+import { OUT_OF_NETWORK_MIN_TRUST, trustMultiplier } from "../services/trust";
 
 export interface Candidate {
   postId: string;
@@ -23,6 +24,8 @@ export interface Candidate {
   affinity: number;
   seen: boolean;
   authorNegatives: number;
+  /** Author's private trust score (0–100). */
+  trust: number;
   score: number;
 }
 
@@ -42,7 +45,7 @@ export const WEIGHTS = {
   lookbackHours: 48,
 };
 
-type Row = Omit<Candidate, "score" | "affinity" | "followed" | "seen" | "authorNegatives" | "source" | "reason"> & {
+type Row = Omit<Candidate, "score" | "affinity" | "followed" | "seen" | "authorNegatives" | "trust" | "source" | "reason"> & {
   reason: string | null;
 };
 
@@ -84,7 +87,7 @@ async function sources(db: Db, viewerId: string): Promise<Candidate[]> {
   const add = (rows: Row[], source: Candidate["source"]) => {
     for (const r of rows) {
       if (out.has(r.postId)) continue;
-      out.set(r.postId, { ...r, source, followed: source === "in_network", affinity: 0, seen: false, authorNegatives: 0, score: 0 });
+      out.set(r.postId, { ...r, source, followed: source === "in_network", affinity: 0, seen: false, authorNegatives: 0, trust: 50, score: 0 });
     }
   };
   add(inNet, "in_network");
@@ -98,7 +101,7 @@ async function hydrateFeatures(db: Db, viewerId: string, cands: Candidate[]): Pr
   if (cands.length === 0) return;
   const authorIds = [...new Set(cands.map((c) => c.authorId))];
   const postIds = cands.map((c) => c.postId);
-  const [affinity, seen, negatives, follows] = await Promise.all([
+  const [affinity, seen, negatives, follows, trust] = await Promise.all([
     // How much has the viewer engaged with each author in the last 30 days?
     db<{ author_id: string; n: number }[]>`
       SELECT author_id, sum(w)::float AS n FROM (
@@ -116,7 +119,9 @@ async function hydrateFeatures(db: Db, viewerId: string, cands: Candidate[]): Pr
       SELECT author_id, count(*)::int AS n FROM feed_negative
       WHERE user_id = ${viewerId} AND author_id = ANY(${authorIds}::bigint[]) GROUP BY author_id`,
     db<{ id: string }[]>`SELECT followee_id AS id FROM follows WHERE follower_id = ${viewerId} AND followee_id = ANY(${authorIds}::bigint[])`,
+    db<{ id: string; trust_score: number }[]>`SELECT id, trust_score FROM users WHERE id = ANY(${authorIds}::bigint[])`,
   ]);
+  const trustOf = new Map(trust.map((t) => [t.id, t.trust_score]));
   const aff = new Map(affinity.map((a) => [a.author_id, a.n]));
   const seenSet = new Set(seen.map((s) => s.post_id));
   const neg = new Map(negatives.map((n) => [n.author_id, n.n]));
@@ -126,6 +131,7 @@ async function hydrateFeatures(db: Db, viewerId: string, cands: Candidate[]): Pr
     c.seen = seenSet.has(c.postId);
     c.authorNegatives = neg.get(c.authorId) ?? 0;
     c.followed = followed.has(c.authorId);
+    c.trust = trustOf.get(c.authorId) ?? 50;
   }
 }
 
@@ -135,6 +141,8 @@ function filter(cands: Candidate[], f: ViewerFilters): Candidate[] {
       !f.blockedUsers.has(c.authorId) &&
       !f.mutedUsers.has(c.authorId) &&
       !f.notInterestedPosts.has(c.postId) &&
+      // Low-trust accounts still reach their followers but are never recommended to strangers.
+      (c.followed || c.trust >= OUT_OF_NETWORK_MIN_TRUST) &&
       !containsMutedWord(c.text, f.mutedWords),
   );
 }
@@ -150,6 +158,7 @@ export function score(c: Candidate, now = Date.now()): number {
   if (!c.followed) s *= W.outOfNetworkFactor;
   if (c.seen) s *= W.seenFactor;
   if (c.authorNegatives > 0) s *= Math.pow(W.authorNegativeFactor, c.authorNegatives);
+  s *= trustMultiplier(c.trust ?? 50);
   // In-network posts get a floor so a quiet account you follow is not buried by viral strangers.
   if (c.followed) s += 0.5 * freshness;
   return s;

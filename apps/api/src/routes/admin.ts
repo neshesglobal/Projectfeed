@@ -3,12 +3,14 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import type { Db } from "../db";
 import { MODERATION_ACTIONS, MODERATION_REASONS, type ModerationActionType } from "@projectfeed/shared";
 import { hashPassword, verifyPassword } from "../lib/auth";
 import { AppError, badRequest, forbidden, notFound, parse, unauthorized } from "../lib/errors";
 import { isId, newId } from "../lib/ids";
 import { PERMS, STAFF_ROLES, can, logAccess, requireJustification, requireStaff, type Perm, type StaffUser } from "../lib/staff";
 import { POST_ACTIONS, REVERSAL, applyAction } from "../services/moderation";
+import { computeTrust } from "../services/trust";
 import { idCursor, pageSize } from "../services/timeline";
 
 const MODERATOR_MAX_SUSPENSION_DAYS = 7;
@@ -229,7 +231,8 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         (SELECT count(*)::int FROM media WHERE created_at > now() - interval '24 hours' AND status = 'ready') AS "uploads24h",
         (SELECT count(*)::int FROM users WHERE created_at > now() - interval '24 hours') AS "signups24h",
         (SELECT count(*)::int FROM users WHERE status = 'suspended') AS "suspended",
-        (SELECT count(*)::int FROM users WHERE status = 'frozen') AS "frozen"`;
+        (SELECT count(*)::int FROM users WHERE status = 'frozen') AS "frozen",
+        (SELECT count(*)::int FROM verification_applications WHERE status = 'pending') AS "pendingVerifications"`;
     const byReason = await sql<{ reason: string; n: number }[]>`
       SELECT reason, count(*)::int AS n FROM reports WHERE status = 'open' GROUP BY reason ORDER BY n DESC`;
     // Staff below compliance see the quarantine count only as "restricted" work, not a number to drill into.
@@ -563,8 +566,9 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Params: { id: string } }>("/users/:id", async (req) => {
     requireStaff(req);
     if (!isId(req.params.id)) throw notFound("User");
-    const [u] = await sql<{ id: string; bio: string; strike_count: number; created_at: Date; followers_count: number; following_count: number; posts_count: number; kyc_level: number; suspended_until: Date | null; is_protected: boolean }[]>`
-      SELECT id, bio, strike_count, created_at, followers_count, following_count, posts_count, kyc_level, suspended_until, is_protected
+    const [u] = await sql<{ id: string; bio: string; strike_count: number; created_at: Date; followers_count: number; following_count: number; posts_count: number; kyc_level: number; suspended_until: Date | null; is_protected: boolean; badge: string | null; account_type: string; id_country: string | null; phone_country: string | null; conn_country: string | null }[]>`
+      SELECT id, bio, strike_count, created_at, followers_count, following_count, posts_count, kyc_level, suspended_until, is_protected,
+             badge, account_type, id_country, phone_country, conn_country
       FROM users WHERE id = ${req.params.id}`;
     if (!u) throw notFound("User");
     const [a, history, reports, posts] = await Promise.all([
@@ -580,9 +584,17 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         : sql<{ id: string }[]>`SELECT id FROM posts WHERE author_id = ${u.id} AND deleted_at IS NULL ORDER BY id DESC LIMIT 20`,
     ]);
     const postMap = posts ? await adminPosts(posts.map((p) => p.id)) : null;
+    const [sub] = await sql<{ plan: string; status: string; current_period_end: Date; provider: string }[]>`
+      SELECT plan, status, current_period_end, provider FROM subscriptions WHERE user_id = ${u.id} ORDER BY current_period_end DESC LIMIT 1`;
+    const trust = await computeTrust(sql, u.id);
     return {
       ...a.get(u.id)!,
       bio: u.bio,
+      trust,
+      badge: u.badge,
+      accountType: u.account_type,
+      countries: { id: u.id_country?.trim() ?? null, phone: u.phone_country?.trim() ?? null, connection: u.conn_country?.trim() ?? null },
+      subscription: sub ? { plan: sub.plan, status: sub.status, currentPeriodEnd: sub.current_period_end.toISOString(), provider: sub.provider } : null,
       strikes: u.strike_count,
       createdAt: u.created_at.toISOString(),
       followers: u.followers_count,
@@ -759,6 +771,110 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     });
     await logAccess(sql, req, { action: `quarantine_${outcome}`, targetType: "media", targetId: req.params.mediaId, justification });
     return { ok: true, outcome };
+  });
+
+
+  // ───────────────────────────── Verification & badges (compliance) ─────────────────────────────
+
+  app.get<{ Querystring: { status?: string } }>("/verifications", async (req) => {
+    requireStaff(req, "verifyAccounts");
+    const status = req.query.status ?? "pending";
+    if (!["pending", "approved", "rejected", "withdrawn"].includes(status)) throw badRequest("Invalid status");
+    const rows = await sql<{ id: string; user_id: string; kind: string; status: string; legal_name: string | null; reg_type: string | null; reg_number: string | null; country: string | null; website: string | null; signatory_name: string | null; signatory_role: string | null; category: string | null; links: string[]; about: string | null; review_note: string | null; created_at: Date; decided_at: Date | null; kyc_level: number; id_country: string | null }[]>`
+      SELECT v.*, u.kyc_level, u.id_country FROM verification_applications v JOIN users u ON u.id = v.user_id
+      WHERE v.status = ${status} ORDER BY ${status === "pending" ? sql`v.created_at` : sql`v.decided_at DESC`} LIMIT 200`;
+    const who = await authors([...new Set(rows.map((r) => r.user_id))]);
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        user: who.get(r.user_id) ?? null,
+        kind: r.kind,
+        status: r.status,
+        legalName: r.legal_name,
+        regType: r.reg_type,
+        regNumber: r.reg_number,
+        country: r.country?.trim() ?? null,
+        website: r.website,
+        signatory: r.signatory_name ? { name: r.signatory_name, role: r.signatory_role } : null,
+        category: r.category,
+        links: r.links,
+        about: r.about,
+        reviewNote: r.review_note,
+        applicantKyc: { level: r.kyc_level, country: r.id_country?.trim() ?? null },
+        createdAt: r.created_at.toISOString(),
+        decidedAt: r.decided_at?.toISOString() ?? null,
+      })),
+    };
+  });
+
+  /**
+   * Approve or reject. Approval grants the badge and starts a manually invoiced subscription (until in-app billing
+   * is wired). Reviewers must check the registration number against the official registry (GST portal / MCA) first.
+   */
+  app.post<{ Params: { id: string } }>("/verifications/:id/decide", async (req) => {
+    const me = requireStaff(req, "verifyAccounts");
+    if (!isId(req.params.id)) throw notFound("Application");
+    const body = parse(z.object({ decision: z.enum(["approved", "rejected"]), note: z.string().trim().min(10).max(1000), months: z.number().int().min(1).max(24).default(1) }), req.body);
+    const result = await sql.begin(async (tx) => {
+      const [v] = await tx<{ user_id: string; kind: "business" | "creator"; status: string }[]>`
+        SELECT user_id, kind, status FROM verification_applications WHERE id = ${req.params.id} FOR UPDATE`;
+      if (!v) throw notFound("Application");
+      if (v.status !== "pending") throw new AppError(409, "ALREADY_DECIDED", "Application already decided");
+      await tx`UPDATE verification_applications SET status = ${body.decision}, reviewer_id = ${me.id}, review_note = ${body.note}, decided_at = now()
+               WHERE id = ${req.params.id}`;
+      if (body.decision === "approved") {
+        await tx`UPDATE users SET badge = ${v.kind}, badge_granted_at = now(),
+                   account_type = ${v.kind === "business" ? "business" : sql`account_type`},
+                   kyc_level = ${v.kind === "business" ? sql`greatest(kyc_level, 2)` : sql`kyc_level`}
+                 WHERE id = ${v.user_id}`;
+        await extendSubscription(tx, v.user_id, v.kind, body.months);
+      }
+      return { userId: v.user_id, kind: v.kind };
+    });
+    await logAccess(sql, req, { action: `verification_${body.decision}`, targetType: "user", targetId: result.userId, justification: body.note });
+    return { ok: true, ...result, decision: body.decision };
+  });
+
+  async function extendSubscription(tx: Db, userId: string, plan: "business" | "creator", months: number) {
+    const [cur] = await tx<{ id: string; current_period_end: Date }[]>`
+      SELECT id, current_period_end FROM subscriptions WHERE user_id = ${userId} AND plan = ${plan} AND status = 'active'
+      ORDER BY current_period_end DESC LIMIT 1`;
+    const from = cur && cur.current_period_end > new Date() ? cur.current_period_end : new Date();
+    const end = new Date(from.getTime() + months * 30 * 86400_000);
+    if (cur) await tx`UPDATE subscriptions SET current_period_end = ${end} WHERE id = ${cur.id}`;
+    else await tx`INSERT INTO subscriptions (id, user_id, plan, status, provider, current_period_end) VALUES (${newId()}, ${userId}, ${plan}, 'active', 'manual', ${end})`;
+  }
+
+  /** Record a manual (invoiced) payment, extending the plan. */
+  app.post<{ Params: { id: string } }>("/users/:id/subscription", async (req) => {
+    requireStaff(req, "verifyAccounts");
+    if (!isId(req.params.id)) throw notFound("User");
+    const body = parse(z.object({ plan: z.enum(["business", "creator"]), months: z.number().int().min(1).max(24), reference: z.string().trim().min(3).max(100) }), req.body);
+    await sql.begin((tx) => extendSubscription(tx, req.params.id, body.plan, body.months));
+    await logAccess(sql, req, { action: "subscription_payment", targetType: "user", targetId: req.params.id, justification: `${body.plan} ${body.months}m · ${body.reference}` });
+    return { ok: true };
+  });
+
+  app.post<{ Params: { id: string } }>("/users/:id/subscription/cancel", async (req) => {
+    requireStaff(req, "verifyAccounts");
+    if (!isId(req.params.id)) throw notFound("User");
+    const justification = requireJustification((req.body as { justification?: string } | undefined)?.justification);
+    await sql`UPDATE subscriptions SET status = 'canceled' WHERE user_id = ${req.params.id} AND status = 'active'`;
+    await logAccess(sql, req, { action: "subscription_cancel", targetType: "user", targetId: req.params.id, justification });
+    return { ok: true };
+  });
+
+  /** Public figure, government and news badges: granted on published criteria, never sold. */
+  app.post<{ Params: { id: string } }>("/users/:id/badge", async (req) => {
+    requireStaff(req, "verifyAccounts");
+    if (!isId(req.params.id)) throw notFound("User");
+    const body = parse(z.object({ badge: z.enum(["public_figure", "government", "news"]).nullable(), justification: z.string().trim().min(15).max(1000) }), req.body);
+    const [u] = await sql<{ badge: string | null }[]>`SELECT badge FROM users WHERE id = ${req.params.id}`;
+    if (!u) throw notFound("User");
+    if (body.badge === null && (u.badge === "business" || u.badge === "creator")) throw badRequest("Use subscription cancel for paid badges");
+    await sql`UPDATE users SET badge = ${body.badge}, badge_granted_at = ${body.badge ? sql`now()` : null} WHERE id = ${req.params.id}`;
+    await logAccess(sql, req, { action: body.badge ? `badge_grant_${body.badge}` : "badge_revoke", targetType: "user", targetId: req.params.id, justification: body.justification });
+    return { ok: true };
   });
 
   // ───────────────────────────── Access log & staff (admin) ─────────────────────────────

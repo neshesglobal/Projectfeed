@@ -9,6 +9,10 @@ export interface UserSummary {
   avatarUrl: string | null;
   kycLevel: KycLevel;
   isProtected: boolean;
+  /** Business / creator (paid, active subscription) or public figure / government / news (granted). */
+  badge: import("./business").Badge | null;
+  /** The verified business this person works for, shown as a small logo next to their name. */
+  affiliation: { id: string; handle: string; displayName: string; avatarUrl: string | null } | null;
 }
 
 export interface ViewerRelationship {
@@ -90,6 +94,10 @@ export interface Post {
   counts: PostCounts;
   viewer: PostViewerState;
   deleted: boolean;
+  /** Community Note rated helpful by people with different viewpoints ("Readers added context"). */
+  note: { id: string; text: string; sources: string[] } | null;
+  /** Business or creator promotion, labelled "Paid partnership" (ASCI influencer guidelines). */
+  paidPartnership: boolean;
   /** Detected language (BCP-47), or null if unknown. Drives the "Translate post" button. */
   lang: string | null;
   /** Media is behind a sensitive-content interstitial (moderator label). */
@@ -215,6 +223,8 @@ export interface ModerationNotice {
 
 export interface AccountStanding {
   status: "active" | "suspended" | "frozen";
+  /** Private trust score: visible only to the account holder (and staff). */
+  trust: { score: number; band: "Excellent" | "Good" | "Fair" | "Limited"; factors: { key: string; label: string; points: number }[] };
   suspendedUntil: string | null;
   strikes: number;
   notices: ModerationNotice[];
@@ -235,4 +245,83 @@ export interface TranslationConfig {
   enabled: boolean;
   provider: string;
   languages: string[];
+}
+
+export interface Country {
+  /** ISO 3166-1 alpha-2. */
+  code: string;
+  name: string;
+}
+
+/** "About this account": where the account really is, ranked by how hard each signal is to fake. */
+export interface AccountAbout {
+  userId: string;
+  handle: string;
+  joinedAt: string;
+  /** Country of the identity document verified at KYC. Cannot be changed with a VPN. */
+  identity: { verified: boolean; country: Country | null; verifiedAt: string | null };
+  /** Country code of the OTP-verified phone number. */
+  phoneCountry: Country | null;
+  /**
+   * Majority connection country over 30 days, ignoring VPNs, proxies, Tor and hosting providers.
+   * "insufficient": too few usable connections (including accounts that mostly use a VPN).
+   * "varies": no single country dominates. "unavailable": not measured on this server.
+   */
+  connection: { status: "ok" | "insufficient" | "varies" | "unavailable"; country: Country | null; changesLastYear: number };
+  handleChanges: { from: string; to: string; at: string }[];
+  /** No upheld rule violations in the last 12 months (only shown when true). */
+  cleanRecord: boolean;
+}
+
+export interface VerificationApplication {
+  id: string;
+  kind: "business" | "creator";
+  status: "pending" | "approved" | "rejected" | "withdrawn";
+  legalName: string | null;
+  regType: string | null;
+  regNumber: string | null;
+  category: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface Affiliation {
+  org: UserSummary;
+  member: UserSummary;
+  title: string;
+  status: "pending" | "active";
+}
+
+export interface VerificationStatus {
+  kycLevel: number;
+  badge: import("./business").Badge | null;
+  subscription: { plan: "business" | "creator"; status: string; currentPeriodEnd: string } | null;
+  applications: VerificationApplication[];
+  /** Invitations to join a business, and the current affiliation. */
+  affiliations: Affiliation[];
+  /** For business accounts: the people affiliated with it. */
+  affiliates: Affiliation[];
+}
+
+export interface CommunityNote {
+  id: string;
+  postId: string;
+  classification: "misleading" | "not_misleading";
+  text: string;
+  sources: string[];
+  status: "needs_ratings" | "helpful" | "not_helpful";
+  ratingCount: number;
+  createdAt: string;
+  /** The viewer's own rating, if any. */
+  myRating: "yes" | "somewhat" | "no" | null;
+  isMine: boolean;
+}
+
+export interface NotesForPost {
+  notes: CommunityNote[];
+  canWrite: boolean;
+  canRate: boolean;
+  /** Why the viewer can't contribute yet, if they can't. */
+  eligibility: string | null;
 }

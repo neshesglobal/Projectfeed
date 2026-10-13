@@ -20,7 +20,8 @@ const RANK: Record<StaffRole, number> = { support: 0, moderator: 1, senior_moder
  *  support            view queues, public content and account status (no PII)
  *  moderator          + act on posts, warn, suspend up to 7 days, resolve reports
  *  senior_moderator   + longer suspensions, bans, decide appeals, view reported/flagged protected posts (logged)
- *  compliance         + view reported DMs (logged), reveal PII (logged), freeze/unfreeze, quarantine
+ *  compliance         + view reported DMs (logged), reveal PII (logged), freeze/unfreeze, quarantine,
+ *                       verify businesses/creators, grant public-figure/government/news badges, record payments
  *  admin              + manage staff, read the access log
  */
 export const PERMS = {
@@ -34,6 +35,7 @@ export const PERMS = {
   revealPii: "compliance",
   freeze: "compliance",
   quarantine: "compliance",
+  verifyAccounts: "compliance",
   manageStaff: "admin",
   readAccessLog: "admin",
 } as const satisfies Record<string, StaffRole>;

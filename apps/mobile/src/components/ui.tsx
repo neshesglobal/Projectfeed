@@ -19,7 +19,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { UserSummary } from "@projectfeed/shared";
+import { BADGE_LABEL, type Badge, type UserSummary } from "@projectfeed/shared";
 import { font, radius, space, useTheme } from "../theme";
 import { Backdrop, Chip, Glass } from "./glass";
 
@@ -112,6 +112,49 @@ export function VerifiedBadge({ level, size = 16 }: { level: number; size?: numb
   );
 }
 
+const BADGE_STYLE: Record<Badge, { icon: IconName; color: string }> = {
+  business: { icon: "briefcase", color: "#3B82F6" },
+  creator: { icon: "star", color: "#8B5CF6" },
+  public_figure: { icon: "ribbon", color: "#0EA5A4" },
+  government: { icon: "business", color: "#64748B" },
+  news: { icon: "newspaper", color: "#E85D3A" },
+};
+
+/**
+ * The badges after a name: a business/creator/public-figure/government/news badge if the account has one,
+ * otherwise the gold ID-verified tick; then the logo of the verified business the person works for.
+ */
+export function UserBadges({ user, size = 16 }: { user: Pick<UserSummary, "kycLevel" | "badge" | "affiliation">; size?: number }) {
+  const b = user.badge ? BADGE_STYLE[user.badge] : null;
+  return (
+    <>
+      {b ? (
+        <View
+          accessibilityLabel={BADGE_LABEL[user.badge!]}
+          style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: b.color, alignItems: "center", justifyContent: "center", marginLeft: 3 }}
+        >
+          <Ionicons name={b.icon} size={size * 0.6} color="#fff" />
+        </View>
+      ) : (
+        <VerifiedBadge level={user.kycLevel} size={size} />
+      )}
+      {user.affiliation ? (
+        <View accessibilityLabel={`Works at ${user.affiliation.displayName}`} style={{ marginLeft: 4 }}>
+          {user.affiliation.avatarUrl ? (
+            <Image source={{ uri: user.affiliation.avatarUrl }} style={{ width: size, height: size, borderRadius: 4 }} />
+          ) : (
+            <View style={{ width: size, height: size, borderRadius: 4, backgroundColor: BADGE_STYLE.business.color, alignItems: "center", justifyContent: "center" }}>
+              <Text weight="800" style={{ color: "#fff", fontSize: size * 0.6, lineHeight: size * 0.8 }}>
+                {user.affiliation.displayName.slice(0, 1)}
+              </Text>
+            </View>
+          )}
+        </View>
+      ) : null}
+    </>
+  );
+}
+
 export function NameLine({ user, onPress, size = "md" }: { user: UserSummary; onPress?: () => void; size?: keyof typeof font }) {
   const t = useTheme();
   return (
@@ -119,7 +162,7 @@ export function NameLine({ user, onPress, size = "md" }: { user: UserSummary; on
       <Text weight="700" size={size} numberOfLines={1} style={{ flexShrink: 1 }}>
         {user.displayName}
       </Text>
-      <VerifiedBadge level={user.kycLevel} />
+      <UserBadges user={user} />
       {user.isProtected ? <Ionicons name="lock-closed" size={13} color={t.textMuted} style={{ marginLeft: 3 }} /> : null}
     </Pressable>
   );

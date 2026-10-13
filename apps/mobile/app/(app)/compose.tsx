@@ -134,6 +134,8 @@ export default function Compose() {
   const [drafts, setDrafts] = useState<Draft[]>([emptyDraft()]);
   const [active, setActive] = useState(0);
   const [audience, setAudience] = useState<Audience>("everyone");
+  const [paid, setPaid] = useState(false);
+  const canLabelPaid = me?.badge === "business" || me?.badge === "creator";
   const [busy, setBusy] = useState(false);
   const [altEditing, setAltEditing] = useState<{ localId: string; text: string } | null>(null);
 
@@ -260,6 +262,7 @@ export default function Compose() {
             quoteOfId: i === 0 ? params.quoteOfId : undefined,
             mediaIds,
             replyAudience: audience,
+            paidPartnership: i === 0 && paid ? true : undefined,
             poll: d.poll ? { options: d.poll.map((o) => o.trim()).filter(Boolean), durationMinutes: 24 * 60 } : undefined,
           });
           replyTo = post.id;
@@ -376,12 +379,27 @@ export default function Compose() {
 
       <Glass radius={radius.xl} style={{ marginHorizontal: space.sm, marginBottom: (insets.bottom || space.md) + 4, paddingVertical: space.xs }}>
         {!params.replyToId && !isEdit ? (
-          <Pressable onPress={chooseAudience} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.sm }}>
-            <Ionicons name="earth" size={16} color={t.accent} />
-            <Text weight="700" size="sm" style={{ color: t.accent }}>
-              {AUDIENCE_LABEL[audience]}
-            </Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Pressable onPress={chooseAudience} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.sm }}>
+              <Ionicons name="earth" size={16} color={t.accent} />
+              <Text weight="700" size="sm" style={{ color: t.accent }}>
+                {AUDIENCE_LABEL[audience]}
+              </Text>
+            </Pressable>
+            {canLabelPaid ? (
+              <Pressable
+                onPress={() => setPaid((v) => !v)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: paid }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.sm }}
+              >
+                <Ionicons name={paid ? "pricetag" : "pricetag-outline"} size={15} color={paid ? t.accent : t.textMuted} />
+                <Text weight="600" size="sm" style={{ color: paid ? t.accent : t.textMuted }}>
+                  Paid partnership
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
         {!isEdit ? (
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.sm, gap: space.xs }}>

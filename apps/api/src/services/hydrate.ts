@@ -1,6 +1,6 @@
 // Turns database rows into API objects, applying viewer-specific state and visibility.
 
-import type { Media, Poll, Post, UserProfile, UserSummary, ViewerRelationship } from "@projectfeed/shared";
+import type { Badge, Media, Poll, Post, UserProfile, UserSummary, ViewerRelationship } from "@projectfeed/shared";
 import type { Db } from "../db";
 import type { Storage } from "../lib/storage";
 
@@ -19,7 +19,29 @@ interface UserRow {
   avatar_key: string | null;
   kyc_level: number;
   is_protected: boolean;
+  badge: Badge | null;
+  aff_id: string | null;
+  aff_handle: string | null;
+  aff_name: string | null;
+  aff_avatar: string | null;
 }
+
+/** An active paid plan for the badge it unlocks. */
+const ACTIVE_SUB = (alias: string, plan: string) =>
+  `EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = ${alias}.id AND s.plan = ${plan} AND s.status = 'active' AND s.current_period_end > now())`;
+
+/**
+ * Badge and affiliation columns for a users row aliased `u` (use with AFFILIATION_JOIN).
+ * Granted badges always show; business/creator badges only while the subscription is active, and an
+ * affiliation only while the business itself is verified.
+ */
+export const BADGE_COLUMNS = `
+  CASE WHEN u.badge IN ('public_figure','government','news') THEN u.badge
+       WHEN u.badge IN ('business','creator') AND ${ACTIVE_SUB("u", "u.badge")} THEN u.badge END AS badge,
+  ao.id AS aff_id, ao.handle::text AS aff_handle, ao.display_name AS aff_name, aom.storage_key AS aff_avatar`;
+export const AFFILIATION_JOIN = `
+  LEFT JOIN users ao ON ao.id = u.affiliated_org_id AND ao.status = 'active' AND ao.badge = 'business' AND ${ACTIVE_SUB("ao", "'business'")}
+  LEFT JOIN media aom ON aom.id = ao.avatar_media_id`;
 
 function toSummary(ctx: HydrateCtx, r: UserRow): UserSummary {
   return {
@@ -29,6 +51,10 @@ function toSummary(ctx: HydrateCtx, r: UserRow): UserSummary {
     avatarUrl: r.avatar_key ? ctx.storage.url(r.avatar_key) : null,
     kycLevel: r.kyc_level as 0 | 1 | 2,
     isProtected: r.is_protected,
+    badge: r.badge ?? null,
+    affiliation: r.aff_id
+      ? { id: r.aff_id, handle: r.aff_handle!, displayName: r.aff_name!, avatarUrl: r.aff_avatar ? ctx.storage.url(r.aff_avatar) : null }
+      : null,
   };
 }
 
@@ -36,8 +62,9 @@ export async function userSummaries(ctx: HydrateCtx, ids: string[]): Promise<Map
   const out = new Map<string, UserSummary>();
   if (ids.length === 0) return out;
   const rows = await ctx.db<UserRow[]>`
-    SELECT u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected
-    FROM users u LEFT JOIN media am ON am.id = u.avatar_media_id
+    SELECT u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected,
+           ${ctx.db.unsafe(BADGE_COLUMNS)}
+    FROM users u LEFT JOIN media am ON am.id = u.avatar_media_id ${ctx.db.unsafe(AFFILIATION_JOIN)}
     WHERE u.id = ANY(${ids}::bigint[]) AND u.status <> 'deleted'`;
   for (const r of rows) out.set(r.id, toSummary(ctx, r));
   return out;
@@ -79,10 +106,11 @@ export async function userProfile(ctx: HydrateCtx, viewerId: string | null, user
   >`
     SELECT u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected,
            u.bio, u.location, u.website, u.company, u.role, u.sectors, bm.storage_key AS banner_key, u.created_at,
-           u.followers_count, u.following_count, u.posts_count, u.pinned_post_id
+           u.followers_count, u.following_count, u.posts_count, u.pinned_post_id, ${ctx.db.unsafe(BADGE_COLUMNS)}
     FROM users u
     LEFT JOIN media am ON am.id = u.avatar_media_id
     LEFT JOIN media bm ON bm.id = u.banner_media_id
+    ${ctx.db.unsafe(AFFILIATION_JOIN)}
     WHERE u.id = ${userId} AND (u.status = 'active' OR u.id = ${viewerId ?? ANON})`;
   if (!r) return null;
   return {
@@ -117,6 +145,7 @@ interface PostRow extends UserRow {
   removed_at: Date | null;
   sensitive: boolean;
   lang: string | null;
+  paid_partnership: boolean;
   conversation_id: string;
   reply_to_id: string | null;
   reply_to_handle: string | null;
@@ -237,7 +266,7 @@ export async function hydratePosts(
            p.conversation_id, p.reply_to_id, ru.handle::text AS reply_to_handle, p.quote_of_id, p.reply_audience,
            p.reply_count, p.repost_count, p.quote_count, p.like_count, p.bookmark_count, p.view_count,
            u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected,
-           u.status AS author_status,
+           u.status AS author_status, p.paid_partnership, ${ctx.db.unsafe(BADGE_COLUMNS)},
            EXISTS(SELECT 1 FROM likes l WHERE l.user_id = ${v} AND l.post_id = p.id) AS liked,
            EXISTS(SELECT 1 FROM reposts r WHERE r.user_id = ${v} AND r.post_id = p.id) AS reposted,
            EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = ${v} AND b.post_id = p.id) AS bookmarked,
@@ -249,16 +278,23 @@ export async function hydratePosts(
     FROM posts p
     JOIN users u ON u.id = p.author_id
     LEFT JOIN media am ON am.id = u.avatar_media_id
+    ${ctx.db.unsafe(AFFILIATION_JOIN)}
     LEFT JOIN users ru ON ru.id = p.reply_to_author_id
     WHERE p.id = ANY(${unique}::bigint[])`;
 
   const visibleIds = rows.filter((r) => !r.deleted_at && !r.removed_at).map((r) => r.post_id);
   const quoteIds = rows.map((r) => r.quote_of_id).filter((q): q is string => !!q);
-  const [media, polls, quotes] = await Promise.all([
+  const [media, polls, quotes, notes] = await Promise.all([
     mediaFor(ctx, "post_media", visibleIds),
     pollsFor(ctx, v, visibleIds),
     depth === 0 ? hydratePosts(ctx, viewerId, quoteIds, 1) : Promise.resolve(new Map<string, Post>()),
+    // The most helpful shown note per post ("Readers added context").
+    ctx.db<{ post_id: string; id: string; text: string; sources: string[] }[]>`
+      SELECT DISTINCT ON (post_id) post_id, id, text, sources FROM community_notes
+      WHERE post_id = ANY(${visibleIds}::bigint[]) AND status = 'helpful' AND classification = 'misleading'
+      ORDER BY post_id, intercept DESC`,
   ]);
+  const noteOf = new Map(notes.map((n) => [n.post_id, { id: n.id, text: n.text, sources: n.sources }]));
 
   for (const r of rows) {
     const isOwn = r.author_id === v;
@@ -302,6 +338,8 @@ export async function hydratePosts(
       viewer: { liked: r.liked, reposted: r.reposted, bookmarked: r.bookmarked, canReply },
       deleted: !!r.deleted_at,
       lang: unavailable ? null : r.lang,
+      paidPartnership: !unavailable && r.paid_partnership,
+      note: unavailable ? null : (noteOf.get(r.post_id) ?? null),
       ...(r.sensitive && !unavailable ? { sensitive: true } : {}),
       ...(unavailable ? { unavailable } : {}),
     });

@@ -61,7 +61,7 @@ export const qs = (p: Record<string, string | undefined | null>) => {
 export type Role = "support" | "moderator" | "senior_moderator" | "compliance" | "admin";
 export type Perm =
   | "view" | "act" | "suspendLong" | "ban" | "decideAppeals" | "viewProtected"
-  | "viewDms" | "revealPii" | "freeze" | "quarantine" | "manageStaff" | "readAccessLog";
+  | "viewDms" | "revealPii" | "freeze" | "quarantine" | "verifyAccounts" | "manageStaff" | "readAccessLog";
 
 export interface Me {
   id: string;

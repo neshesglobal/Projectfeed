@@ -56,6 +56,7 @@ export const createPostSchema = z
   .object({
     text: z.string().max(4000).default(""),
     replyToId: z.string().optional(),
+    paidPartnership: z.boolean().default(false),
     quoteOfId: z.string().optional(),
     mediaIds: z.array(z.string()).max(4).default([]),
     replyAudience: z.enum(REPLY_AUDIENCES).default("everyone"),
@@ -193,3 +194,40 @@ export const appealSchema = z.object({
   actionId: z.string(),
   text: z.string().trim().min(10, "Tell us why you think this decision was wrong").max(2000),
 });
+
+export const changeHandleSchema = z.object({ handle: handleSchema });
+
+export const verificationApplySchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("business"),
+    legalName: z.string().trim().min(2).max(120),
+    regType: z.enum(["GSTIN", "CIN", "LLPIN", "UDYAM", "OTHER"]),
+    regNumber: z.string().trim().min(3).max(40),
+    country: z.string().length(2).default("IN"),
+    website: z.union([z.url().max(200), z.literal("")]).default(""),
+    signatoryName: z.string().trim().min(2).max(80),
+    signatoryRole: z.string().trim().min(2).max(80),
+  }),
+  z.object({
+    kind: z.literal("creator"),
+    category: z.string().trim().min(2).max(60),
+    links: z.array(z.url().max(200)).max(5).default([]),
+    about: z.string().trim().max(500).default(""),
+  }),
+]);
+export type VerificationApplyInput = z.infer<typeof verificationApplySchema>;
+
+export const affiliateInviteSchema = z.object({ handle: z.string().trim().min(1).max(16), title: z.string().trim().max(60).default("") });
+
+export const noteCreateSchema = z
+  .object({
+    classification: z.enum(["misleading", "not_misleading"]),
+    text: z.string().trim().min(20, "Explain the context in at least 20 characters").max(500),
+    sources: z.array(z.url().max(500)).max(5).default([]),
+  })
+  .refine((n) => n.classification === "not_misleading" || n.sources.length > 0, {
+    message: "Add at least one source link",
+    path: ["sources"],
+  });
+
+export const noteRateSchema = z.object({ helpful: z.enum(["yes", "somewhat", "no"]) });

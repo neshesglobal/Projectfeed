@@ -4,6 +4,35 @@ Prepared 9 October 2026. This is commercial and technical reference material. Th
 
 ---
 
+## Strategy update (13 October 2026): an India-first, general-audience platform
+
+The founder has decided to open Projectfeed to everyone rather than only commodity professionals. Our point of difference is **safety through verified identity**: every account that posts has passed a KYC check. That supersedes the "vertical first" recommendation in §0.2. Commodity and business users stay a launch focus, not the boundary.
+
+What changes:
+- **Market.** India first. The space Koo left when it shut down in July 2024 is open. Translation into the 22 scheduled languages is built (`docs/TRANSLATION.md`).
+- **Point of difference.** Verified identity, made visible:
+  - **About this account** shows the country of the verified ID, which a VPN can't change.
+  - Paid **business and creator badges**, plus employee affiliations.
+  - Granted (never sold) **public figure, government and news** badges.
+  - A **private trust score** that limits the reach of abusive accounts.
+  - **Community Notes** for misleading content.
+  
+  All of these are built; see `docs/TRUST_AND_IDENTITY.md`.
+- **Founder decisions** recorded there:
+  - Every account shows its actual country, with no exceptions.
+  - The trust score is private: no public "social score".
+  - Badges for public figures are never sold.
+- **New legal gates for India.** All need confirming with Indian counsel:
+  - **IT Rules 2021.** Above 5 million users, we become a "significant social media intermediary". That brings a Chief Compliance Officer, a Grievance Officer and a nodal contact person, all resident in India, plus monthly compliance reports. In practice this likely means an Indian company.
+  - **DPDP Act 2023** (India's data protection law):
+    - notice and consent for KYC, location and phone data;
+    - no behavioural tracking of children.
+  - **Aadhaar Act.** Following the Supreme Court's Puttaswamy judgment, ID checks must go through consent-based routes: DigiLocker, Aadhaar offline e-KYC, or PAN.
+  - **Consumer law and advertising.** The consumer authority's 2023 dark-patterns guidelines apply to paid badges, and the ASCI influencer guidelines apply to paid partnership posts (built).
+- **The biggest risk is unchanged**: network effects. Launch into seeded communities: business owners and professionals, verified creators, and one or two languages or cities. Don't launch "everyone, everywhere".
+
+---
+
 ## 0. Read this first: the honest verdict
 
 1. **We can copy the features. We cannot copy the network.** X's value comes from roughly 500M users and their social graph, not from its code. A general-purpose clone launched cold will fail. Threads, Bluesky, Mastodon and Truth Social all copied the features. Only the apps that arrived with a seed audience grew.

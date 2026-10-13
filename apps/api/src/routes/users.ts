@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { updateProfileSchema, type Page, type UserSummary } from "@projectfeed/shared";
 import type { Db } from "../db";
+import { refreshTrust } from "../services/trust";
 import { requireUser } from "../lib/auth";
 import { badRequest, forbidden, notFound, parse } from "../lib/errors";
 import { isId } from "../lib/ids";
@@ -237,6 +238,7 @@ const userRoutes: FastifyPluginAsync = async (app) => {
     await assertUser(sql, target);
     await sql.begin(async (tx) => {
       await tx`INSERT INTO blocks (blocker_id, blocked_id) VALUES (${me.id}, ${target}) ON CONFLICT DO NOTHING`;
+      await refreshTrust(tx, target);
       // A block severs the relationship in both directions.
       await unfollow(tx, me.id, target);
       await unfollow(tx, target, me.id);

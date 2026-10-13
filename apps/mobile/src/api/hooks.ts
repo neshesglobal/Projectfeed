@@ -2,6 +2,10 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import type {
+  CommunityNote,
+  NotesForPost,
+  VerificationStatus,
+  AccountAbout,
   PostTranslation,
   TranslationConfig,
   AccountStanding,
@@ -69,6 +73,7 @@ export function useCreatePost() {
       mediaIds?: string[];
       replyAudience?: string;
       poll?: { options: string[]; durationMinutes: number };
+      paidPartnership?: boolean;
     }) => api<Post>("/posts", { method: "POST", body: input }),
     onSuccess: (post) => {
       void qc.invalidateQueries({ queryKey: ["feed", "following"] });
@@ -316,5 +321,54 @@ export function usePostTranslation(post: Pick<Post, "id" | "editCount">, to: str
     staleTime: Infinity,
     retry: false,
     queryFn: () => api<PostTranslation>(`/posts/${post.id}/translation${qs({ to })}`),
+  });
+}
+
+// ───────────── About this account ─────────────
+export const useAbout = (userId: string | undefined) =>
+  useQuery({ queryKey: ["about", userId], enabled: !!userId, staleTime: 5 * 60_000, queryFn: () => api<AccountAbout>(`/users/${userId}/about`) });
+
+export function useChangeHandle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (handle: string) => api<UserProfile>("/me/handle", { method: "PATCH", body: { handle } }),
+    onSuccess: (me) => {
+      useAuth.getState().setUser(me);
+      void qc.invalidateQueries();
+    },
+  });
+}
+
+// ───────────── Verification & badges ─────────────
+export const useVerification = () =>
+  useQuery({ queryKey: ["verification"], queryFn: () => api<VerificationStatus>("/me/verification") });
+
+/** Generic POST/DELETE for verification actions, refreshing status and profile data afterwards. */
+export function useVerificationAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { path: string; method?: "POST" | "DELETE"; body?: unknown }) => api(v.path, { method: v.method ?? "POST", body: v.body }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["verification"] });
+      void qc.invalidateQueries({ queryKey: ["user"] });
+    },
+  });
+}
+
+// ───────────── Community Notes ─────────────
+export const usePostNotes = (postId: string) =>
+  useQuery({ queryKey: ["notes", postId], queryFn: () => api<NotesForPost>(`/posts/${postId}/notes`) });
+
+export const useNotesQueue = () =>
+  useQuery({ queryKey: ["notesQueue"], queryFn: () => api<{ items: { post: Post; note: CommunityNote }[]; eligibility: string | null }>("/notes/needs-ratings") });
+
+export function useNoteAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { path: string; body: unknown }) => api(v.path, { method: "POST", body: v.body }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["notes"] });
+      void qc.invalidateQueries({ queryKey: ["notesQueue"] });
+    },
   });
 }

@@ -5,6 +5,7 @@ import { APPEALABLE_ACTIONS, appealSchema, type AccountStanding, type Moderation
 import { requireUser } from "../lib/auth";
 import { AppError, notFound, parse } from "../lib/errors";
 import { isId, newId } from "../lib/ids";
+import { refreshTrust } from "../services/trust";
 
 /** Appeals must be lodged within this window of the decision. */
 const APPEAL_WINDOW_DAYS = 90;
@@ -59,8 +60,10 @@ const moderationRoutes: FastifyPluginAsync = async (app) => {
       appeal: r.appeal_status ? { status: r.appeal_status, decisionNote: r.decision_note } : null,
       canAppeal: APPEALABLE.has(r.action) && !r.appeal_status && r.created_at.getTime() > cutoff,
     }));
+    const trust = await refreshTrust(sql, me.id);
     return {
       status: u!.status,
+      trust,
       suspendedUntil: u!.suspended_until?.toISOString() ?? null,
       strikes: u!.strike_count,
       notices,

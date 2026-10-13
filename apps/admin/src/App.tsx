@@ -4,6 +4,7 @@ import { api, session, setUnauthorizedHandler, type Me, type Perm } from "./api"
 import { MeContext, ROLE_LABEL, ToastHost } from "./components";
 import { AccessLog, Appeals, Content, Dashboard, Quarantine, Staff, UserDetail, Users } from "./pages/Other";
 import { Reports } from "./pages/Reports";
+import { Verification } from "./pages/Verification";
 
 function useHash(): string {
   const [hash, setHash] = useState(() => location.hash || "#/");
@@ -21,6 +22,7 @@ const NAV: { href: string; label: string; icon: string; perm: Perm; section: str
   { href: "#/appeals", label: "Appeals", icon: "⚖", perm: "view", section: "Queues", count: "openAppeals", sub: "Second review by a different moderator" },
   { href: "#/content", label: "Content", icon: "▦", perm: "view", section: "Explore", sub: "Public posts, photos, videos and reels" },
   { href: "#/users", label: "Accounts", icon: "◉", perm: "view", section: "Explore", sub: "Account lookup, history and actions" },
+  { href: "#/verification", label: "Verification", icon: "✓", perm: "verifyAccounts", section: "Compliance", count: "pendingVerifications", sub: "Business and creator badge applications" },
   { href: "#/quarantine", label: "Quarantine", icon: "⛔", perm: "quarantine", section: "Compliance", count: "quarantined", sub: "Hash-matched uploads (metadata only)" },
   { href: "#/access-log", label: "Access log", icon: "☰", perm: "readAccessLog", section: "Admin", sub: "Who viewed what, and why" },
   { href: "#/staff", label: "Staff", icon: "✦", perm: "manageStaff", section: "Admin", sub: "Roles and access" },
@@ -107,6 +109,7 @@ export function App() {
     title = "Account";
   } else if (seg[0] === "users") page = <Users key={params.get("status") ?? ""} status={params.get("status") ?? undefined} />;
   else if (seg[0] === "quarantine") page = <Quarantine />;
+  else if (seg[0] === "verification") page = <Verification />;
   else if (seg[0] === "access-log") page = <AccessLog />;
   else if (seg[0] === "staff") page = <Staff />;
   else page = <Dashboard />;

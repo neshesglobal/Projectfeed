@@ -16,7 +16,7 @@ import { usePlayback } from "../store/playback";
 import { Glass } from "./glass";
 import { SHARE_BASE } from "./PostCard";
 import { RichText } from "./RichText";
-import { Avatar, Button, Text, VerifiedBadge } from "./ui";
+import { Avatar, Button, Text, UserBadges } from "./ui";
 
 const WHITE = "#FFFFFF";
 const LIKE = "#F91880";
@@ -199,7 +199,7 @@ const ReelItem = memo(function ReelItem({ post, height, active, near, bottomInse
           <Text weight="800" style={{ color: WHITE, ...SHADOW }}>
             {post.author.displayName}
           </Text>
-          <VerifiedBadge level={post.author.kycLevel} />
+          <UserBadges user={post.author} />
           <Text size="sm" style={{ color: "rgba(255,255,255,0.8)", ...SHADOW }}>
             {" "}@{post.author.handle}
           </Text>

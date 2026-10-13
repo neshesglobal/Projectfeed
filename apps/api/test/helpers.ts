@@ -9,6 +9,7 @@ import { newId } from "../src/lib/ids";
 import type { StaffRole } from "../src/lib/staff";
 import { NoopScanner, type MediaScanner } from "../src/services/screening";
 import type { Translator } from "../src/services/translate";
+import type { GeoIpProvider } from "../src/services/location";
 import { config, type Config } from "../src/config";
 import { createDb, migrate, type Sql } from "../src/db";
 
@@ -22,18 +23,19 @@ export interface TestEnv {
 }
 
 /** Fresh schema per test file, so files are independent. */
-export async function setup(overrides: Partial<Config> = {}, opts: { scanner?: MediaScanner; translator?: Translator | null } = {}): Promise<TestEnv> {
+export async function setup(overrides: Partial<Config> = {}, opts: { scanner?: MediaScanner; translator?: Translator | null; geo?: GeoIpProvider } = {}): Promise<TestEnv> {
   const sql = createDb(TEST_DB);
   await sql.unsafe("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   await migrate(sql);
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "pf-uploads-"));
   process.env.RATE_LIMIT_PER_MIN = "100000";
   process.env.AUTH_RATE_LIMIT_PER_MIN = "100000";
-  const app = await buildApp({ ...config, databaseUrl: TEST_DB, uploadDir, ...overrides }, sql, { scanner: opts.scanner ?? new NoopScanner(), translator: opts.translator });
+  const app = await buildApp({ ...config, databaseUrl: TEST_DB, uploadDir, ...overrides }, sql, { scanner: opts.scanner ?? new NoopScanner(), translator: opts.translator, geo: opts.geo });
   return {
     app,
     sql,
     close: async () => {
+      await app.ctx.notes.idle();
       await app.close();
       await sql.end();
       await app.ctx.video.idle();

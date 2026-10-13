@@ -5,6 +5,7 @@ import type { ModerationActionType } from "@projectfeed/shared";
 import type { Db } from "../db";
 import { AppError, badRequest, notFound } from "../lib/errors";
 import { newId } from "../lib/ids";
+import { refreshTrust } from "./trust";
 
 export const POST_ACTIONS = new Set<ModerationActionType>([
   "remove_post",
@@ -127,5 +128,6 @@ export async function applyAction(tx: Db, input: ActionInput): Promise<{ actionI
         WHERE status = 'open' AND (id = ${input.reportId} OR (target_type = ${r.target_type} AND target_id = ${r.target_id}))`;
     }
   }
+  await refreshTrust(tx, userId);
   return { actionId, userId, targetType };
 }

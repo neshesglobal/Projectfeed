@@ -11,6 +11,7 @@ import {
   type Post,
 } from "@projectfeed/shared";
 import type { Db } from "../db";
+import { effectiveBadge } from "../services/badges";
 import { requireUser } from "../lib/auth";
 import { badRequest, conflict, forbidden, notFound, parse } from "../lib/errors";
 import { isId, newId } from "../lib/ids";
@@ -59,6 +60,12 @@ const postRoutes: FastifyPluginAsync = async (app) => {
   app.post("/posts", { preHandler: requireVerified }, async (req, reply) => {
     const me = requireUser(req);
     const input = parse(createPostSchema, req.body);
+    if (input.paidPartnership) {
+      const badge = await effectiveBadge(sql, me.id);
+      if (badge !== "business" && badge !== "creator") {
+        throw forbidden("Paid partnership labels are for verified businesses and creators", "BADGE_REQUIRED");
+      }
+    }
 
     let parent: Post | null = null;
     if (input.replyToId) {
@@ -82,10 +89,11 @@ const postRoutes: FastifyPluginAsync = async (app) => {
         if (hasVideo && owned.length > 1) throw badRequest("A post can have one video, or up to 4 photos");
       }
       await tx`
-        INSERT INTO posts (id, author_id, text, reply_to_id, reply_to_author_id, quote_of_id, conversation_id, reply_audience, has_video, lang)
+        INSERT INTO posts (id, author_id, text, reply_to_id, reply_to_author_id, quote_of_id, conversation_id, reply_audience, has_video, lang,
+                           paid_partnership)
         VALUES (${id}, ${me.id}, ${input.text}, ${parent?.id ?? null}, ${parent?.author.id ?? null},
                 ${input.quoteOfId ?? null}, ${parent?.conversationId ?? id}, ${input.replyAudience}, ${hasVideo},
-                ${detectLanguage(input.text)})`;
+                ${detectLanguage(input.text)}, ${input.paidPartnership})`;
       for (const [i, mid] of input.mediaIds.entries()) {
         await tx`INSERT INTO post_media (post_id, media_id, position) VALUES (${id}, ${mid}, ${i})`;
       }
@@ -146,21 +154,22 @@ const postRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /**
-   * Replies ranked X-style: the author's own replies first, then accounts the viewer follows,
-   * then by engagement. Paged by offset because the order is not chronological.
+   * Replies ranked X-style: the author's own replies first, then accounts the viewer follows, then
+   * low-trust accounts pushed below everyone else, then engagement weighted by the replier's trust. Paged by offset because the order is not chronological.
    */
   async function replies(viewer: string | null, parent: Post, cursor: string | null, limit: number): Promise<Page<Post>> {
     const offset = cursor ? Number(cursor) : 0;
     if (!Number.isInteger(offset) || offset < 0) throw badRequest("Invalid cursor");
     const v = viewer ?? "0";
     const rows = await sql<{ id: string }[]>`
-      SELECT p.id FROM posts p
+      SELECT p.id FROM posts p JOIN users ru ON ru.id = p.author_id
       WHERE p.reply_to_id = ${parent.id} AND p.deleted_at IS NULL
         AND NOT EXISTS (SELECT 1 FROM mutes WHERE muter_id = ${v} AND muted_id = p.author_id)
       ORDER BY (p.author_id = ${parent.author.id}) DESC,
                (p.author_id = ${v}) DESC,
                EXISTS (SELECT 1 FROM follows WHERE follower_id = ${v} AND followee_id = p.author_id) DESC,
-               (p.like_count + 2 * p.reply_count + p.repost_count) DESC,
+               (ru.trust_score >= 40) DESC,
+               ln(2 + p.like_count + 2 * p.reply_count + p.repost_count) * (0.6 + 0.008 * ru.trust_score) DESC,
                p.id ASC
       OFFSET ${offset} LIMIT ${limit}`;
     const items = await visiblePosts(hctx, viewer, rows.map((r) => r.id));

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import type { ModerationNotice } from "@projectfeed/shared";
+import type { AccountStanding, ModerationNotice } from "@projectfeed/shared";
 import { errorMessage } from "../../../src/api/client";
 import { useAppeal, useMarkNoticesRead, useStanding } from "../../../src/api/hooks";
 import { Card } from "../../../src/components/glass";
@@ -157,6 +157,7 @@ export default function Standing() {
             <Text muted>{banner.body}</Text>
           </View>
         </Card>
+        <TrustCard trust={s.trust} />
         {s.notices.length === 0 ? (
           <EmptyState title="No moderation decisions" body="If we ever act on your posts or account, you'll see the reason here and can appeal." />
         ) : (
@@ -174,5 +175,49 @@ export default function Standing() {
         </Text>
       </ScrollView>
     </Screen>
+  );
+}
+
+const BAND_COPY: Record<string, string> = {
+  Excellent: "Your posts and replies get full reach.",
+  Good: "Your posts and replies get normal reach.",
+  Fair: "Normal reach. Verifying your ID and a clean record raise your score.",
+  Limited: "Your posts reach only your followers, your replies are shown lower, and you can start 5 new conversations a day.",
+};
+
+/** The private trust score: only the account holder sees it, with every factor explained. */
+function TrustCard({ trust }: { trust: AccountStanding["trust"] }) {
+  const t = useTheme();
+  const tone = trust.band === "Limited" ? t.danger : trust.band === "Fair" ? t.verified : t.success;
+  return (
+    <Card style={{ gap: space.sm }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+        <View style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 3, borderColor: tone, alignItems: "center", justifyContent: "center" }}>
+          <Text weight="800" size="lg">
+            {trust.score}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text weight="800">Trust score · {trust.band}</Text>
+          <Text muted size="sm">
+            {BAND_COPY[trust.band]}
+          </Text>
+        </View>
+      </View>
+      {trust.factors.map((f) => (
+        <View key={f.key} style={{ flexDirection: "row", justifyContent: "space-between", gap: space.md }}>
+          <Text size="sm" muted style={{ flex: 1 }}>
+            {f.label}
+          </Text>
+          <Text size="sm" weight="700" style={{ color: f.points < 0 ? t.danger : f.key === "base" ? t.text : t.success }}>
+            {f.points > 0 && f.key !== "base" ? "+" : ""}
+            {f.points}
+          </Text>
+        </View>
+      ))}
+      <Text muted size="xs">
+        <Ionicons name="lock-closed" size={11} /> Only you can see your score. Other people never do.
+      </Text>
+    </Card>
   );
 }

@@ -12,6 +12,7 @@ import { LocalStorage, type Storage } from "./lib/storage";
 import { VideoProcessor } from "./services/video";
 import { createScanner, type MediaScanner } from "./services/screening";
 import { createTranslator, type Translator } from "./services/translate";
+import { ConnectionTracker, createGeoIp, type GeoIpProvider } from "./services/location";
 import { StaffTokens, type StaffRole } from "./lib/staff";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
@@ -27,6 +28,10 @@ import settingsRoutes from "./routes/settings";
 import moderationRoutes from "./routes/moderation";
 import adminRoutes from "./routes/admin";
 import translateRoutes from "./routes/translate";
+import aboutRoutes from "./routes/about";
+import verificationRoutes from "./routes/verification";
+import notesRoutes from "./routes/notes";
+import { NotesScheduler } from "./services/notes";
 
 export interface AppCtx {
   sql: Sql;
@@ -37,6 +42,11 @@ export interface AppCtx {
   scanner: MediaScanner;
   /** Post translation provider; null when translation is switched off. */
   translator: Translator | null;
+  /** IP → country and VPN/proxy detection, for "About this account". */
+  geo: GeoIpProvider;
+  connections: ConnectionTracker;
+  /** Re-scores Community Notes shortly after new ratings. */
+  notes: NotesScheduler;
   staffTokens: StaffTokens;
   /** preHandler for every write endpoint (auth + future KYC gate). */
   requireVerified: preHandlerHookHandler;
@@ -57,7 +67,7 @@ const allowed = (list: RegExp[], url: string) => list.some((r) => r.test(url.spl
 export async function buildApp(
   cfg: Config,
   sql: Sql,
-  opts: { logger?: boolean; scanner?: MediaScanner; translator?: Translator | null } = {},
+  opts: { logger?: boolean; scanner?: MediaScanner; translator?: Translator | null; geo?: GeoIpProvider } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? false,
@@ -68,6 +78,7 @@ export async function buildApp(
   fs.mkdirSync(cfg.uploadDir, { recursive: true });
   const storage = new LocalStorage(cfg.uploadDir, cfg.publicBaseUrl);
   const scanner = opts.scanner ?? createScanner(cfg.isProd);
+  const geo = opts.geo ?? (await createGeoIp(cfg.isProd));
   const ctx: AppCtx = {
     sql,
     cfg,
@@ -75,6 +86,9 @@ export async function buildApp(
     tokens: new TokenService(cfg),
     video: new VideoProcessor(sql, storage, scanner),
     scanner,
+    geo,
+    connections: new ConnectionTracker(sql, geo),
+    notes: new NotesScheduler(sql),
     translator: opts.translator === undefined ? createTranslator(cfg.isProd) : opts.translator,
     staffTokens: new StaffTokens(cfg),
     requireVerified: makeRequireVerified(cfg) as preHandlerHookHandler,
@@ -133,6 +147,8 @@ export async function buildApp(
       }
     }
     req.user = { id: claims.id, kycLevel: u.kyc_level, status: u.status };
+    // Country-level connection signal for "About this account" (one write per user, address and day).
+    await ctx.connections.record(claims.id, req.ip).catch((e) => req.log.warn(e));
   });
 
   app.setErrorHandler((err, req, reply) => {
@@ -168,6 +184,9 @@ export async function buildApp(
   await app.register(settingsRoutes, { prefix: "/v1" });
   await app.register(moderationRoutes, { prefix: "/v1" });
   await app.register(translateRoutes, { prefix: "/v1" });
+  await app.register(aboutRoutes, { prefix: "/v1" });
+  await app.register(verificationRoutes, { prefix: "/v1" });
+  await app.register(notesRoutes, { prefix: "/v1" });
   await app.register(adminRoutes, { prefix: "/admin/v1" });
 
   return app;
