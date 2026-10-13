@@ -31,7 +31,7 @@ async function visiblePost(ctx: HydrateCtx, viewerId: string | null, id: string)
   return post;
 }
 
-async function writeEntities(db: Db, postId: string, authorId: string, text: string): Promise<string[]> {
+export async function writeEntities(db: Db, postId: string, authorId: string, text: string): Promise<string[]> {
   const entities = extractEntities(text);
   const handles = [...new Set(entities.filter((e) => e.type === "mention").map((e) => e.value.toLowerCase()))].slice(0, 20);
   const tags = entities.filter((e) => e.type === "hashtag" || e.type === "cashtag");
@@ -322,6 +322,9 @@ const postRoutes: FastifyPluginAsync = async (app) => {
     await sql`
       WITH d AS (DELETE FROM bookmarks WHERE user_id = ${me.id} AND post_id = ${req.params.id} RETURNING post_id)
       UPDATE posts SET bookmark_count = greatest(bookmark_count - 1, 0) FROM d WHERE posts.id = d.post_id`;
+    // Un-saving also takes it out of the user's collections (a collection is an organised view of saves).
+    await sql`DELETE FROM collection_items ci USING collections c
+              WHERE ci.collection_id = c.id AND c.owner_id = ${me.id} AND ci.post_id = ${req.params.id}`;
     return { bookmarked: false };
   });
 

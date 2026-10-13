@@ -22,6 +22,7 @@ import { TranslatePost } from "./TranslatePost";
 import { NoteCard } from "./NoteCard";
 import { PollView } from "./PollView";
 import { RichText } from "./RichText";
+import { Stars } from "./Stars";
 import { useSheet, type SheetOption } from "./Sheet";
 import { toast } from "./Toast";
 import { Card } from "./glass";
@@ -204,7 +205,7 @@ export function usePostMenu() {
 }
 
 /** Disclosure for promotional posts by verified businesses and creators (ASCI influencer guidelines). */
-function PaidPartnership() {
+export function PaidPartnership() {
   const t = useTheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
@@ -212,6 +213,38 @@ function PaidPartnership() {
       <Text muted size="xs" weight="600">
         Paid partnership
       </Text>
+    </View>
+  );
+}
+
+/** Discover notes in timelines: the title, the verified-review rating and the place. */
+function NoteHeadline({ post }: { post: Post }) {
+  const t = useTheme();
+  if (post.kind !== "note") return null;
+  return (
+    <View style={{ marginTop: 6, gap: 3 }}>
+      {post.review ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Stars value={post.review.rating} size={13} />
+          <Text size="xs" weight="700" muted>
+            Verified review
+          </Text>
+        </View>
+      ) : null}
+      {post.title ? (
+        <Text weight="800" size="lg">
+          {post.title}
+        </Text>
+      ) : null}
+      {post.place ? (
+        <Pressable onPress={() => router.push(`/place/${post.place!.id}`)} accessibilityRole="link" style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+          <Ionicons name="location" size={13} color={t.accent} />
+          <Text size="sm" weight="600" numberOfLines={1} style={{ color: t.accent, flexShrink: 1 }}>
+            {post.place.name}
+            {post.place.city ? ` · ${post.place.city}` : ""}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -303,7 +336,7 @@ export const PostCard = memo(function PostCard({
   };
   const goPost = () => {
     track({ type: "click_post", postId: post.id, surface });
-    router.push(`/post/${post.id}`);
+    router.push(post.kind === "note" ? `/note/${post.id}` : `/post/${post.id}`);
   };
 
   // Compact: social context folds into the meta line, smaller avatar, tighter padding (~4 text posts per screen).
@@ -369,6 +402,7 @@ export const PostCard = memo(function PostCard({
               </Text>
             ) : null}
             {post.paidPartnership ? <PaidPartnership /> : null}
+            <NoteHeadline post={post} />
             {post.text ? (
               <View style={{ marginTop: 2 }}>
                 <RichText text={post.text} postId={post.id} />
@@ -376,7 +410,6 @@ export const PostCard = memo(function PostCard({
               </View>
             ) : null}
             <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
-        <NoteCard post={post} />
             <NoteCard post={post} />
             {post.poll ? <PollView post={post} /> : null}
             {post.quote ? <QuotedPost post={post.quote} /> : null}
@@ -424,6 +457,7 @@ export const PostCard = memo(function PostCard({
           </Text>
         ) : null}
         {post.paidPartnership ? <PaidPartnership /> : null}
+        <NoteHeadline post={post} />
         {post.text ? (
           <View style={{ marginTop: compact ? 6 : space.sm }}>
             <RichText text={post.text} postId={post.id} />

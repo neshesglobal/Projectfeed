@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "migrate": "tsx src/scripts/migrate.ts",
-    "seed": "tsx src/scripts/seed.ts && tsx src/scripts/seed-videos.ts && tsx src/scripts/seed-moderation.ts && tsx src/scripts/seed-trust.ts",
+    "seed": "tsx src/scripts/seed.ts && tsx src/scripts/seed-videos.ts && tsx src/scripts/seed-moderation.ts && tsx src/scripts/seed-trust.ts && tsx src/scripts/seed-notes.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

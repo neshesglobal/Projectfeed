@@ -12,7 +12,9 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Projectfeed needs access to your photos so you can attach images to posts and messages.",
-        "NSCameraUsageDescription": "Projectfeed needs camera access so you can take photos for posts."
+        "NSCameraUsageDescription": "Projectfeed needs camera access so you can take photos for posts.",
+        "NSLocationWhenInUseUsageDescription": "Projectfeed uses your location to show places near you and to tag where a note or review was taken. Your location is never shown on your profile.",
+        "NSMicrophoneUsageDescription": "Projectfeed needs microphone access to record sound with videos."
       }
     },
     "android": {
@@ -33,7 +35,13 @@
           "photosPermission": "Projectfeed needs access to your photos so you can attach images to posts and messages."
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Projectfeed uses your location to show places near you and to tag where a note or review was taken. Your location is never shown on your profile."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false

@@ -2,7 +2,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import type {
+  Collection,
   CommunityNote,
+  Place,
   NotesForPost,
   VerificationStatus,
   AccountAbout,
@@ -369,6 +371,120 @@ export function useNoteAction() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["notes"] });
       void qc.invalidateQueries({ queryKey: ["notesQueue"] });
+    },
+  });
+}
+
+// ───────────── Discover: notes, places, collections ─────────────
+export const useDiscover = (topic: string, coords: { lat: number; lng: number } | null) =>
+  usePaged<FeedItem>(
+    ["discover", topic, coords ? `${coords.lat.toFixed(2)},${coords.lng.toFixed(2)}` : null],
+    "/feed/discover",
+    { topic, lat: coords ? String(coords.lat) : undefined, lng: coords ? String(coords.lng) : undefined },
+    topic !== "nearby" || !!coords,
+  );
+
+export const useSearchNotes = (q: string) =>
+  usePaged<FeedItem>(["search", "notes", q], "/search/notes", { q }, q.length > 0);
+
+export const usePlace = (id: string) => useQuery({ queryKey: ["place", id], enabled: !!id, queryFn: () => api<Place>(`/places/${id}`) });
+
+export const usePlaceNotes = (id: string, reviewsOnly: boolean) =>
+  usePaged<FeedItem>(["placeNotes", id, reviewsOnly], `/places/${id}/notes`, { reviews: reviewsOnly ? "1" : undefined });
+
+export const useNearbyPlaces = (coords: { lat: number; lng: number } | null, q: string) =>
+  useQuery({
+    queryKey: ["places", "nearby", coords?.lat.toFixed(3), coords?.lng.toFixed(3), q],
+    enabled: !!coords,
+    queryFn: () => api<{ items: Place[] }>(`/places/nearby${qs({ lat: coords!.lat, lng: coords!.lng, q })}`),
+  });
+
+export function useCreatePlace() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; category: string; lat: number; lng: number; address?: string; city?: string; country?: string }) =>
+      api<{ place: Place; existing: boolean }>("/places", { method: "POST", body: input }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["places"] }),
+  });
+}
+
+export function useCreateNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      title: string;
+      text: string;
+      mediaIds: string[];
+      placeId?: string;
+      review?: { rating: number; visitedOn?: string };
+      paidPartnership?: boolean;
+    }) => api<Post>("/notes", { method: "POST", body: input }),
+    onSuccess: (post) => {
+      void qc.invalidateQueries({ queryKey: ["discover"] });
+      void qc.invalidateQueries({ queryKey: ["userPosts", post.author.id] });
+      if (post.place) {
+        void qc.invalidateQueries({ queryKey: ["place", post.place.id] });
+        void qc.invalidateQueries({ queryKey: ["placeNotes", post.place.id] });
+      }
+    },
+  });
+}
+
+export const useMyCollections = (enabled = true) =>
+  useQuery({ queryKey: ["collections", "me"], enabled, queryFn: () => api<{ items: Collection[] }>("/me/collections") });
+
+export const useUserCollections = (userId: string | undefined) =>
+  useQuery({ queryKey: ["collections", "user", userId], enabled: !!userId, queryFn: () => api<{ items: Collection[] }>(`/users/${userId}/collections`) });
+
+export const useCollection = (id: string) =>
+  useInfiniteQuery({
+    // Typed as a generic paged result so it can feed NoteGrid; `collection` and `ownerId` ride along on every page.
+    queryKey: ["collection", id],
+    initialPageParam: "",
+    queryFn: ({ pageParam }) =>
+      api<Page<FeedItem> & Record<string, unknown>>(`/collections/${id}${qs({ cursor: pageParam })}`),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+
+export const useSavedIn = (postId: string) =>
+  useQuery({ queryKey: ["savedIn", postId], queryFn: () => api<{ collectionIds: string[] }>(`/posts/${postId}/saved-in`) });
+
+export function useCollectionAction() {
+  const qc = useQueryClient();
+  const refresh = (postId?: string) => {
+    void qc.invalidateQueries({ queryKey: ["collections"] });
+    void qc.invalidateQueries({ queryKey: ["collection"] });
+    void qc.invalidateQueries({ queryKey: ["bookmarks"] });
+    if (postId) void qc.invalidateQueries({ queryKey: ["savedIn", postId] });
+  };
+  return useMutation({
+    mutationFn: async (
+      a:
+        | { kind: "create"; name: string; isPrivate: boolean }
+        | { kind: "update"; id: string; name?: string; isPrivate?: boolean }
+        | { kind: "delete"; id: string }
+        | { kind: "add"; id: string; post: Post }
+        | { kind: "remove"; id: string; post: Post },
+    ) => {
+      switch (a.kind) {
+        case "create":
+          return api<Collection>("/me/collections", { method: "POST", body: { name: a.name, isPrivate: a.isPrivate } });
+        case "update":
+          return api(`/me/collections/${a.id}`, { method: "PATCH", body: { name: a.name, isPrivate: a.isPrivate } });
+        case "delete":
+          return api(`/me/collections/${a.id}`, { method: "DELETE" });
+        case "add":
+          return api(`/me/collections/${a.id}/items`, { method: "POST", body: { postId: a.post.id } });
+        case "remove":
+          return api(`/me/collections/${a.id}/items/${a.post.id}`, { method: "DELETE" });
+      }
+    },
+    onSuccess: (_r, a) => {
+      // Saving into a collection also bookmarks the post.
+      if (a.kind === "add" && !a.post.viewer.bookmarked) {
+        updatePostEverywhere(qc, a.post.id, (x) => ({ ...x, viewer: { ...x.viewer, bookmarked: true }, counts: { ...x.counts, bookmarks: x.counts.bookmarks + 1 } }));
+      }
+      refresh(a.kind === "add" || a.kind === "remove" ? a.post.id : undefined);
     },
   });
 }

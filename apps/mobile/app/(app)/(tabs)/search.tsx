@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { formatCount, SECTORS, type FeedItem, type Page } from "@projectfeed/shared";
+import { formatCount, type FeedItem, type Page } from "@projectfeed/shared";
 import { api } from "../../../src/api/client";
 import { useSuggestions, useTrends, useTypeahead } from "../../../src/api/hooks";
 import { Fab } from "../../../src/components/Fab";
@@ -19,16 +19,17 @@ import { formatDuration } from "../../../src/lib/upload";
 import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
 
 const trendLabel = (tag: string, kind: string) => (kind === "cashtag" ? `$${tag.toUpperCase()}` : `#${tag}`);
-const SECTOR_QUERY: Record<string, string> = {
-  Petroleum: "#EN590",
-  "Gas & LNG": "#LNG",
-  "Gold & Precious Metals": "#gold",
-  "Base Metals": "#copper",
-  Agriculture: "#wheat",
-  Fertilisers: "#urea",
-  "Shipping & Freight": "#shipping",
-  "Trade Finance": "#tradefinance",
-};
+/** Broad topics for a general India audience (each opens a hashtag search). */
+const TOPICS: [string, string][] = [
+  ["India", "#india"],
+  ["Business", "#business"],
+  ["Cricket", "#cricket"],
+  ["Markets", "#markets"],
+  ["Food", "#food"],
+  ["Tech", "#tech"],
+  ["Jobs", "#jobs"],
+  ["Travel", "#travel"],
+];
 
 function TrendingReels() {
   const t = useTheme();
@@ -65,7 +66,8 @@ function TrendingReels() {
   );
 }
 
-export default function Explore() {
+/** Trends (formerly Explore): what's happening now, trending reels and people to follow. */
+export default function Trends() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const [q, setQ] = useState("");
@@ -88,9 +90,9 @@ export default function Explore() {
 
   return (
     <Screen>
-      <TabHeader title="Explore">
+      <TabHeader title="Trends">
         <View style={{ paddingHorizontal: space.lg, paddingBottom: space.sm }}>
-          <SearchBar value={q} onChange={setQ} onSubmit={() => submit()} placeholder="Discover topics or connections" onFilter={filters} />
+          <SearchBar value={q} onChange={setQ} onSubmit={() => submit()} placeholder="Search Projectfeed" onFilter={filters} />
         </View>
       </TabHeader>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: tabBarSpace(insets.bottom) + 40 }}>
@@ -120,8 +122,8 @@ export default function Explore() {
         ) : (
           <View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.sm }}>
-              {SECTORS.filter((s) => SECTOR_QUERY[s]).map((s) => (
-                <Chip key={s} label={s} onPress={() => submit(SECTOR_QUERY[s])} />
+              {TOPICS.map(([label, query]) => (
+                <Chip key={label} label={label} onPress={() => submit(query)} />
               ))}
             </ScrollView>
 
@@ -149,7 +151,7 @@ export default function Explore() {
                 >
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text muted size="sm">
-                      {tr.kind === "cashtag" ? "Markets" : "Trade"} · {tr.context}
+                      {tr.kind === "cashtag" ? "Markets" : "Trending"} · {tr.context}
                     </Text>
                     <Text weight="800" size="lg">
                       {trendLabel(tr.tag, tr.kind)}

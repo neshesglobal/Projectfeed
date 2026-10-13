@@ -231,3 +231,42 @@ export const noteCreateSchema = z
   });
 
 export const noteRateSchema = z.object({ helpful: z.enum(["yes", "somewhat", "no"]) });
+
+// ───────────────────────────── Notes, places, collections ─────────────────────────────
+
+export const MAX_NOTE_TEXT = 1000;
+export const MAX_NOTE_MEDIA = 10;
+
+/** A Discover note: photo- or video-first, with a title. Optionally a review of a place. */
+export const createPhotoNoteSchema = z.object({
+  title: z.string().trim().min(2, "Add a title").max(60),
+  text: z.string().max(MAX_NOTE_TEXT).default(""),
+  mediaIds: z.array(z.string()).min(1, "Add at least one photo or video").max(MAX_NOTE_MEDIA),
+  placeId: z.string().optional(),
+  review: z
+    .object({
+      rating: z.number().int().min(1).max(5),
+      visitedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    })
+    .optional(),
+  paidPartnership: z.boolean().default(false),
+  replyAudience: z.enum(REPLY_AUDIENCES).default("everyone"),
+});
+export type CreatePhotoNoteInput = z.input<typeof createPhotoNoteSchema>;
+
+export const PLACE_CATEGORIES = ["Café", "Restaurant", "Street food", "Shop", "Market", "Hotel", "Attraction", "Trek", "Beach", "Temple", "Office", "Port", "Other"] as const;
+
+export const createPlaceSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  category: z.string().trim().max(40).default(""),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  address: z.string().trim().max(200).default(""),
+  city: z.string().trim().max(60).default(""),
+  country: z.string().length(2).optional(),
+});
+
+export const collectionSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  isPrivate: z.boolean().default(false),
+});

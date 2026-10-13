@@ -31,6 +31,7 @@ import translateRoutes from "./routes/translate";
 import aboutRoutes from "./routes/about";
 import verificationRoutes from "./routes/verification";
 import notesRoutes from "./routes/notes";
+import discoverRoutes from "./routes/discover";
 import { NotesScheduler } from "./services/notes";
 
 export interface AppCtx {
@@ -187,6 +188,7 @@ export async function buildApp(
   await app.register(aboutRoutes, { prefix: "/v1" });
   await app.register(verificationRoutes, { prefix: "/v1" });
   await app.register(notesRoutes, { prefix: "/v1" });
+  await app.register(discoverRoutes, { prefix: "/v1" });
   await app.register(adminRoutes, { prefix: "/admin/v1" });
 
   return app;

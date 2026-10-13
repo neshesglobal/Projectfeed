@@ -13,11 +13,15 @@ type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tab
 
 const ICONS: Record<string, [IconName, IconName]> = {
   index: ["home-outline", "home"],
-  search: ["compass-outline", "compass"],
+  discover: ["grid-outline", "grid"],
+  search: ["trending-up-outline", "trending-up"],
   reels: ["play-circle-outline", "play-circle"],
   notifications: ["notifications-outline", "notifications"],
   messages: ["chatbubbles-outline", "chatbubbles"],
 };
+
+/** Tab routes reached from elsewhere (Messages opens from the Home header), not shown in the bar. */
+const HIDDEN = new Set(["messages"]);
 
 /**
  * Floating Liquid Glass tab bar: a detached capsule above the home indicator, with a lens-like
@@ -48,6 +52,7 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
         }}
       >
         {state.routes.map((route, index) => {
+          if (HIDDEN.has(route.name)) return null;
           const focused = state.index === index;
           const opts = descriptors[route.key]!.options;
           const [off, on] = ICONS[route.name] ?? ["ellipse-outline", "ellipse"];

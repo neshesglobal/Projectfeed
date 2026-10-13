@@ -12,9 +12,11 @@ export default function TabsLayout() {
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: "transparent" } }}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="search" options={{ title: "Explore" }} />
+      <Tabs.Screen name="discover" options={{ title: "Discover" }} />
+      <Tabs.Screen name="search" options={{ title: "Trends" }} />
       <Tabs.Screen name="reels" options={{ title: "Reels" }} />
       <Tabs.Screen name="notifications" options={{ title: "Activity", tabBarBadge: badge(unread.data?.notifications) }} />
+      {/* Messages lives in the Home header (five tabs fit the floating bar); the route stays a tab so its state is kept. */}
       <Tabs.Screen name="messages" options={{ title: "Messages", tabBarBadge: badge(unread.data?.messages) }} />
     </Tabs>
   );

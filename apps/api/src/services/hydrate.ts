@@ -146,6 +146,16 @@ interface PostRow extends UserRow {
   sensitive: boolean;
   lang: string | null;
   paid_partnership: boolean;
+  kind: "post" | "note";
+  title: string | null;
+  is_review: boolean;
+  rating: number | null;
+  visited_on: Date | string | null;
+  place_id: string | null;
+  place_name: string | null;
+  place_city: string | null;
+  place_lat: number | null;
+  place_lng: number | null;
   conversation_id: string;
   reply_to_id: string | null;
   reply_to_handle: string | null;
@@ -267,6 +277,8 @@ export async function hydratePosts(
            p.reply_count, p.repost_count, p.quote_count, p.like_count, p.bookmark_count, p.view_count,
            u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected,
            u.status AS author_status, p.paid_partnership, ${ctx.db.unsafe(BADGE_COLUMNS)},
+           p.kind, p.title, p.is_review, p.rating, p.visited_on::text AS visited_on,
+           pl.id AS place_id, pl.name AS place_name, pl.city AS place_city, pl.lat AS place_lat, pl.lng AS place_lng,
            EXISTS(SELECT 1 FROM likes l WHERE l.user_id = ${v} AND l.post_id = p.id) AS liked,
            EXISTS(SELECT 1 FROM reposts r WHERE r.user_id = ${v} AND r.post_id = p.id) AS reposted,
            EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = ${v} AND b.post_id = p.id) AS bookmarked,
@@ -280,6 +292,7 @@ export async function hydratePosts(
     LEFT JOIN media am ON am.id = u.avatar_media_id
     ${ctx.db.unsafe(AFFILIATION_JOIN)}
     LEFT JOIN users ru ON ru.id = p.reply_to_author_id
+    LEFT JOIN places pl ON pl.id = p.place_id
     WHERE p.id = ANY(${unique}::bigint[])`;
 
   const visibleIds = rows.filter((r) => !r.deleted_at && !r.removed_at).map((r) => r.post_id);
@@ -339,6 +352,13 @@ export async function hydratePosts(
       deleted: !!r.deleted_at,
       lang: unavailable ? null : r.lang,
       paidPartnership: !unavailable && r.paid_partnership,
+      kind: r.kind,
+      title: unavailable ? null : r.title,
+      place:
+        !unavailable && r.place_id
+          ? { id: r.place_id, name: r.place_name!, city: r.place_city ?? "", lat: r.place_lat!, lng: r.place_lng! }
+          : null,
+      review: !unavailable && r.is_review && r.rating ? { rating: r.rating, visitedOn: (r.visited_on as string | null) ?? null } : null,
       note: unavailable ? null : (noteOf.get(r.post_id) ?? null),
       ...(r.sensitive && !unavailable ? { sensitive: true } : {}),
       ...(unavailable ? { unavailable } : {}),

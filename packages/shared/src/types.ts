@@ -94,6 +94,12 @@ export interface Post {
   counts: PostCounts;
   viewer: PostViewerState;
   deleted: boolean;
+  /** "post" (the X-style timeline post) or "note" (a Discover note: photo/video-first with a title). */
+  kind: "post" | "note";
+  title: string | null;
+  place: PlaceSummary | null;
+  /** Verified review: every account is ID-checked, so every review is from a verified person. */
+  review: { rating: number; visitedOn: string | null } | null;
   /** Community Note rated helpful by people with different viewpoints ("Readers added context"). */
   note: { id: string; text: string; sources: string[] } | null;
   /** Business or creator promotion, labelled "Paid partnership" (ASCI influencer guidelines). */
@@ -324,4 +330,34 @@ export interface NotesForPost {
   canRate: boolean;
   /** Why the viewer can't contribute yet, if they can't. */
   eligibility: string | null;
+}
+
+export interface PlaceSummary {
+  id: string;
+  name: string;
+  city: string;
+  lat: number;
+  lng: number;
+}
+
+export interface Place extends PlaceSummary {
+  category: string;
+  address: string;
+  country: string | null;
+  reviewCount: number;
+  /** Average of verified review ratings, or null with no reviews. */
+  rating: number | null;
+  noteCount: number;
+  /** Metres from the point the client asked about (nearby search only). */
+  distanceM?: number;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  isPrivate: boolean;
+  itemCount: number;
+  /** Up to four cover thumbnails. */
+  covers: string[];
+  updatedAt: string;
 }

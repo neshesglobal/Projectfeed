@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { FeedItem, Page } from "@projectfeed/shared";
 import { api } from "../../../src/api/client";
-import { useFollowing, useForYou, useListTimeline, useMyLists } from "../../../src/api/hooks";
+import { useFollowing, useForYou, useListTimeline, useMyLists, useUnreadCounts } from "../../../src/api/hooks";
 import { Fab } from "../../../src/components/Fab";
 import { Feed } from "../../../src/components/Feed";
 import { TabHeader } from "../../../src/components/HomeHeader";
@@ -22,6 +22,24 @@ import { radius, space, useTheme } from "../../../src/theme";
 function ListFeed({ id }: { id: string }) {
   const q = useListTimeline(id);
   return <Feed query={q} surface={`list:${id}`} empty={<EmptyState title="No posts yet" body="Posts from members of this list will show up here." />} />;
+}
+
+/** Messages moved from the tab bar to the Home header (Discover took its tab slot), with the unread count. */
+function MessagesButton() {
+  const t = useTheme();
+  const unread = useUnreadCounts().data?.messages ?? 0;
+  return (
+    <View>
+      <IconButton name="paper-plane-outline" glass size={18} label={unread ? `Messages, ${unread} unread` : "Messages"} onPress={() => router.push("/messages")} />
+      {unread > 0 ? (
+        <View pointerEvents="none" style={{ position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: t.like, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: t.bg }}>
+          <Text size="xs" weight="800" style={{ color: "#fff", fontSize: 10 }}>
+            {unread > 99 ? "99+" : unread}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export default function Home() {
@@ -74,7 +92,15 @@ export default function Home() {
 
   return (
     <Screen>
-      <TabHeader title="Projectfeed" right={<IconButton name="color-palette-outline" glass size={18} label="Appearance" onPress={() => router.push("/settings/display")} />}>
+      <TabHeader
+        title="Projectfeed"
+        right={
+          <>
+            <IconButton name="color-palette-outline" glass size={18} label="Appearance" onPress={() => router.push("/settings/display")} />
+            <MessagesButton />
+          </>
+        }
+      >
         <TopTabs value={activeTab} onChange={setTab} tabs={tabs} />
       </TabHeader>
       <View style={{ flex: 1 }}>

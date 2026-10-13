@@ -6,6 +6,7 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 |---|---|
 | [`docs/PLAN.md`](docs/PLAN.md) | Study of X's algorithm and UI/UX, plus the full product plan |
 | [`docs/DEV_PLAN.md`](docs/DEV_PLAN.md) | Core development plan, KYC design, sprints, compliance |
+| [`docs/DISCOVER.md`](docs/DISCOVER.md) | Discover: photo notes, verified reviews, places, free maps and directions, collections |
 
 ## What's built
 
@@ -19,11 +20,12 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 | Photos | Up to 4 per post, camera capture, image descriptions (alt text), EXIF/GPS stripped, WebP re-encode, full-screen viewer with pinch-to-zoom and double-tap zoom |
 | Video | Upload from the library or camera (up to 10 minutes / 512MB) with live upload progress; server transcodes to H.264/AAC MP4 (720p-class, faststart), generates a poster and strips all metadata including location; inline autoplay (muted, one at a time, the most visible card) with duration countdown and a sound toggle; video in DMs |
 | Reels | Full-screen vertical swipe feed (own tab, and opened by tapping any video), ranked by watch completion and average watch time, then engagement, freshness, portrait format and author diversity; tap to pause, double-tap to like, action rail, progress bar, neighbours preloaded; watch time reported per view |
+| Discover | **Photo-first notes** (1–10 photos or a video, a title and text) in a two-column grid, inspired by RedNote, with For you / Nearby / Reviews / topic views. **Verified reviews** (stars and month visited) from ID-checked people. **Places** with a map and one-tap **directions** in Apple Maps or Google Maps (free: no paid maps APIs), user-added with duplicate merging and live ratings. **Collections** (public or private). See `docs/DISCOVER.md` |
 | Translation | **"Translate post"** on any post in another language: English plus the 22 scheduled Indian languages, chosen in **Settings → Language** (default: the phone's language). Tickers, #tags (including Indic tags like #भारत), @mentions and links are never translated. Cached per post and language, with a daily spend cap. Google Cloud Translation adapter; demo translations locally. See `docs/TRANSLATION.md` |
 | Trust and identity | **About this account**: country of the verified ID (can't be changed with a VPN), phone country, and "usually connects from" with VPN, proxy and hosting connections excluded; username history. **Badges**: verified business (GSTIN, CIN, Udyam), creator, employee affiliations, "Paid partnership" labels; public figure, government and news badges are granted and never sold. **Private trust score** that shapes reach, reply ranking and DM limits. **Community Notes** using bridging scoring. See `docs/TRUST_AND_IDENTITY.md` |
 | Engagement | Likes, bookmarks, view counts, engagement lists, share, "Not interested" |
 | Notifications | Grouped ("A and 3 others liked…"), All / Verified / Mentions tabs, unread badges |
-| Search | Posts (Top/Latest/Media, operators `from:`, `filter:media`, `min_faves:`), people, typeahead, trends counted by distinct authors |
+| Trends and search | **Trends** tab (formerly Explore): what's happening, trending reels, topics. Search posts (Top/Latest/Media, operators `from:`, `filter:media`, `min_faves:`), people, typeahead, trends counted by distinct authors |
 | Messages | 1:1 and group DMs, message requests from non-followers, images, shared posts, edit/delete, read state |
 | Safety | Report posts/users/messages (OSA-aligned categories with priority queue), block/mute everywhere, KYC gate (`KYC_ENFORCED`) |
 | Moderation | **Trust & Safety console** (`apps/admin`): priority report queue, public content and latest-uploads browsing, account lookup, remove/restore, sensitive labels, reach limits, warnings, suspensions (read-only), bans, appeals reviewed by a different moderator, five staff roles, **tiered access** to protected posts and DMs with a typed justification, and an **append-only access log**. Users get a statement of reasons and can appeal from **Settings → Account status**. See `docs/MODERATION.md` |
@@ -77,7 +79,7 @@ cp apps/api/.env.example apps/api/.env          # adjust DATABASE_URL if needed
 
 # API (runs migrations on start), then demo data
 pnpm --filter @projectfeed/api dev
-pnpm --filter @projectfeed/api seed             # demo users, posts, reels and a moderation queue (needs ffmpeg); login: demo / projectfeed-demo
+pnpm --filter @projectfeed/api seed             # demo users, posts, reels, Discover notes and a moderation queue (needs ffmpeg); login: demo / projectfeed-demo
 
 # App
 pnpm --filter @projectfeed/mobile start         # press i (iOS simulator), a (Android emulator) or w (web)
@@ -86,6 +88,8 @@ pnpm --filter @projectfeed/mobile start         # press i (iOS simulator), a (An
 On a physical phone, point the app at your machine's LAN address:
 `EXPO_PUBLIC_API_URL=http://192.168.x.x:4000 pnpm --filter @projectfeed/mobile start`.
 The Android emulator reaches `localhost` automatically via `10.0.2.2`.
+Maps in Discover work in Expo Go and on iPhone without a key; Android builds need a free Maps SDK key
+(`GOOGLE_MAPS_ANDROID_KEY`, see `docs/DISCOVER.md`).
 
 Moderation console (proxies to the API on port 4000):
 
@@ -100,7 +104,7 @@ The seed creates one staff account per role, all with the password `projectfeed-
 
 ```bash
 createdb projectfeed_test
-pnpm --filter @projectfeed/api test        # 112 integration tests against a real Postgres (and real ffmpeg)
+pnpm --filter @projectfeed/api test        # 123 integration tests against a real Postgres (and real ffmpeg)
 pnpm typecheck                              # API, shared, mobile and admin
 ```
 

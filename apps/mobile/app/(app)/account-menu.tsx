@@ -58,6 +58,7 @@ export default function AccountMenu() {
           </View>
           <Item icon="person-outline" label="Profile" path={`/user/${me.handle}`} />
           <Item icon="bookmark-outline" label="Bookmarks" path="/bookmarks" />
+          <Item icon="folder-open-outline" label="Collections" path="/collections" />
           <Item icon="list-outline" label="Lists" path="/lists" />
           <Item icon="people-outline" label="Follow requests" path="/follow-requests" />
           <Item icon="person-add-outline" label="Connect" path="/connect" />
