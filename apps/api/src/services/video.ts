@@ -169,6 +169,8 @@ export class VideoProcessor {
           size_bytes = ${size}, source_key = NULL, processed_at = now()
         WHERE id = ${id}`;
     } catch (e) {
+      // The user sees a generic message; the real cause (usually ffmpeg's stderr) goes to the server log.
+      console.error(`[video] processing failed for media ${id}:`, e instanceof Error ? e.message : e);
       const msg = e instanceof Error && /longer than|no duration|No video stream/.test(e.message) ? e.message : "Could not process this video";
       await this.sql`UPDATE media SET status = 'failed', error = ${msg}, source_key = NULL WHERE id = ${id}`;
     } finally {
