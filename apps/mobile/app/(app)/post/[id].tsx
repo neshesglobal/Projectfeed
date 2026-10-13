@@ -3,7 +3,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 import { FlatList, Pressable, RefreshControl, View } from "react-native";
-import { formatCount, type Page, type Post } from "@projectfeed/shared";
+import { formatCount, REGION_LABEL, type Page, type Post } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
 import { useThread } from "../../../src/api/hooks";
 import { MediaGrid } from "../../../src/components/MediaGrid";
@@ -26,6 +26,31 @@ function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () =>
         <Text weight="700">{formatCount(n)}</Text> <Text muted>{label}</Text>
       </Text>
     </Pressable>
+  );
+}
+
+/** "Who can reply" notice on posts with limited replies, as on X. */
+function ReplyLimit({ post }: { post: Post }) {
+  const t = useTheme();
+  if (post.replyAudience === "everyone" && !post.replyRegions) return null;
+  const who: Record<Post["replyAudience"], string> = {
+    everyone: "People",
+    following: `Accounts @${post.author.handle} follows`,
+    following_network: `Accounts @${post.author.handle} follows, and who they follow,`,
+    mentioned: `Only accounts @${post.author.handle} mentioned`,
+  };
+  const where = post.replyRegions ? ` from ${post.replyRegions.map((r) => REGION_LABEL[r]).join(", ")}` : "";
+  return (
+    <View style={{ flexDirection: "row", gap: space.sm, alignItems: "center", padding: space.md, borderRadius: radius.md, backgroundColor: t.accentSoft }}>
+      <Ionicons name="lock-closed" size={16} color={t.accent} />
+      <Text size="sm" style={{ flex: 1 }}>
+        <Text size="sm" weight="700">
+          Who can reply?{" "}
+        </Text>
+        {who[post.replyAudience]}
+        {where} can reply.{post.viewer.canReply ? "" : " You can still like, repost and share."}
+      </Text>
+    </View>
   );
 }
 
@@ -79,6 +104,7 @@ function FocalPost({ post }: { post: Post }) {
           </View>
         </>
       ) : null}
+      <ReplyLimit post={post} />
       <Divider />
       <PostActions post={post} large />
     </Card>

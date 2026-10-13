@@ -12,6 +12,8 @@ export default function AppLayout() {
       <Stack.Screen name="compose-note" options={{ presentation: "modal" }} />
       <Stack.Screen name="place-picker" options={{ presentation: "modal" }} />
       <Stack.Screen name="save-to-collection" options={{ presentation: "transparentModal", animation: "fade" }} />
+      <Stack.Screen name="reply-settings" options={{ presentation: "transparentModal", animation: "fade" }} />
+      <Stack.Screen name="gif-picker" options={{ presentation: "modal" }} />
       <Stack.Screen name="report" options={{ presentation: "modal" }} />
       <Stack.Screen name="new-message" options={{ presentation: "modal" }} />
       <Stack.Screen name="account-menu" options={{ presentation: "transparentModal", animation: "fade" }} />

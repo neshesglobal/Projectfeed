@@ -32,6 +32,8 @@ import aboutRoutes from "./routes/about";
 import verificationRoutes from "./routes/verification";
 import notesRoutes from "./routes/notes";
 import discoverRoutes from "./routes/discover";
+import gifRoutes from "./routes/gifs";
+import { createGifProvider, type GifProvider } from "./services/gifs";
 import { NotesScheduler } from "./services/notes";
 
 export interface AppCtx {
@@ -43,6 +45,8 @@ export interface AppCtx {
   scanner: MediaScanner;
   /** Post translation provider; null when translation is switched off. */
   translator: Translator | null;
+  /** GIF library behind the composer's GIF button; null when switched off. */
+  gifs: GifProvider | null;
   /** IP → country and VPN/proxy detection, for "About this account". */
   geo: GeoIpProvider;
   connections: ConnectionTracker;
@@ -68,7 +72,7 @@ const allowed = (list: RegExp[], url: string) => list.some((r) => r.test(url.spl
 export async function buildApp(
   cfg: Config,
   sql: Sql,
-  opts: { logger?: boolean; scanner?: MediaScanner; translator?: Translator | null; geo?: GeoIpProvider } = {},
+  opts: { logger?: boolean; scanner?: MediaScanner; translator?: Translator | null; geo?: GeoIpProvider; gifs?: GifProvider | null } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? false,
@@ -91,6 +95,7 @@ export async function buildApp(
     connections: new ConnectionTracker(sql, geo),
     notes: new NotesScheduler(sql),
     translator: opts.translator === undefined ? createTranslator(cfg.isProd) : opts.translator,
+    gifs: opts.gifs === undefined ? createGifProvider(cfg.isProd, storage) : opts.gifs,
     staffTokens: new StaffTokens(cfg),
     requireVerified: makeRequireVerified(cfg) as preHandlerHookHandler,
   };
@@ -99,7 +104,8 @@ export async function buildApp(
   app.decorateRequest("user", null);
   app.decorateRequest("staff", null);
 
-  await app.register(cors, { origin: true });
+  // @fastify/cors only allows GET, HEAD and POST unless told otherwise; the web app also edits and deletes.
+  await app.register(cors, { origin: true, methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] });
   await app.register(multipart, { limits: { fileSize: cfg.maxMediaBytes, files: 1 } });
   await app.register(rateLimit, {
     max: Number(process.env.RATE_LIMIT_PER_MIN ?? 600),
@@ -189,6 +195,7 @@ export async function buildApp(
   await app.register(verificationRoutes, { prefix: "/v1" });
   await app.register(notesRoutes, { prefix: "/v1" });
   await app.register(discoverRoutes, { prefix: "/v1" });
+  await app.register(gifRoutes, { prefix: "/v1" });
   await app.register(adminRoutes, { prefix: "/admin/v1" });
 
   return app;

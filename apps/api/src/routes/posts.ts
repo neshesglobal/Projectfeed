@@ -6,6 +6,7 @@ import {
   eventsSchema,
   extractEntities,
   pollVoteSchema,
+  REGIONS,
   type FeedItem,
   type Page,
   type Post,
@@ -29,6 +30,13 @@ async function visiblePost(ctx: HydrateCtx, viewerId: string | null, id: string)
   const post = (await hydratePosts(ctx, viewerId, [id])).get(id);
   if (!post || post.unavailable) throw notFound("Post");
   return post;
+}
+
+/** Stored region limit for replies: deduplicated, and NULL when every region is allowed (no limit). */
+export function replyRegions(regions: readonly string[] | null | undefined): string[] | null {
+  if (!regions) return null;
+  const set = [...new Set(regions)];
+  return set.length >= REGIONS.length ? null : set;
 }
 
 export async function writeEntities(db: Db, postId: string, authorId: string, text: string): Promise<string[]> {
@@ -87,13 +95,14 @@ const postRoutes: FastifyPluginAsync = async (app) => {
         if (owned.some((m) => m.status === "failed")) throw badRequest("One of your attachments failed to process");
         hasVideo = owned.some((m) => m.type === "video");
         if (hasVideo && owned.length > 1) throw badRequest("A post can have one video, or up to 4 photos");
+        if (owned.length > 1 && owned.some((m) => m.type === "gif")) throw badRequest("A post can have one GIF, or up to 4 photos");
       }
       await tx`
         INSERT INTO posts (id, author_id, text, reply_to_id, reply_to_author_id, quote_of_id, conversation_id, reply_audience, has_video, lang,
-                           paid_partnership)
+                           paid_partnership, reply_regions)
         VALUES (${id}, ${me.id}, ${input.text}, ${parent?.id ?? null}, ${parent?.author.id ?? null},
                 ${input.quoteOfId ?? null}, ${parent?.conversationId ?? id}, ${input.replyAudience}, ${hasVideo},
-                ${detectLanguage(input.text)}, ${input.paidPartnership})`;
+                ${detectLanguage(input.text)}, ${input.paidPartnership}, ${replyRegions(input.replyRegions)})`;
       for (const [i, mid] of input.mediaIds.entries()) {
         await tx`INSERT INTO post_media (post_id, media_id, position) VALUES (${id}, ${mid}, ${i})`;
       }

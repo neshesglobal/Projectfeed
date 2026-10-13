@@ -23,7 +23,7 @@ import { effectiveBadge } from "../services/badges";
 import { visiblePosts, type HydrateCtx } from "../services/hydrate";
 import { notify } from "../services/notify";
 import { containsMutedWord, idCursor, loadViewerFilters, pageSize } from "../services/timeline";
-import { writeEntities } from "./posts";
+import { replyRegions, writeEntities } from "./posts";
 
 /** Two pins closer than this with similar names are the same place. */
 const DEDUPE_METRES = 75;
@@ -125,10 +125,10 @@ const discoverRoutes: FastifyPluginAsync = async (app) => {
       }
       await tx`
         INSERT INTO posts (id, author_id, kind, title, text, conversation_id, reply_audience, has_video, lang, paid_partnership,
-                           place_id, is_review, rating, visited_on)
+                           place_id, is_review, rating, visited_on, reply_regions)
         VALUES (${id}, ${me.id}, 'note', ${input.title}, ${input.text}, ${id}, ${input.replyAudience}, ${hasVideo},
                 ${detectLanguage(`${input.title} ${input.text}`)}, ${input.paidPartnership}, ${input.placeId ?? null},
-                ${!!input.review}, ${input.review?.rating ?? null}, ${input.review?.visitedOn ?? null})`;
+                ${!!input.review}, ${input.review?.rating ?? null}, ${input.review?.visitedOn ?? null}, ${replyRegions(input.replyRegions)})`;
       for (const [i, mid] of input.mediaIds.entries()) {
         await tx`INSERT INTO post_media (post_id, media_id, position) VALUES (${id}, ${mid}, ${i})`;
       }

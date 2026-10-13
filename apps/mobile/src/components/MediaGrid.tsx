@@ -52,7 +52,15 @@ export function MediaGrid({ media, postId, surface = "feed", sensitive }: { medi
 
   const tile = (m: Media, i: number, style: object) => (
     <Pressable key={m.id} onPress={() => open(i)} style={[{ overflow: "hidden", backgroundColor: t.bgInput }, style]} accessibilityRole="imagebutton" accessibilityLabel={m.altText || "Image"}>
-      <Image source={{ uri: m.thumbUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+      {/* GIFs play in the feed (the thumbnail is a still frame). */}
+      <Image source={{ uri: m.type === "gif" ? m.url : m.thumbUrl }} placeholder={m.type === "gif" ? { uri: m.thumbUrl } : undefined} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} />
+      {m.type === "gif" ? (
+        <View style={{ position: "absolute", left: 8, bottom: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <Text weight="800" size="xs" style={{ color: "#fff" }}>
+            GIF
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 

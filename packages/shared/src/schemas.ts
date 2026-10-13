@@ -1,3 +1,4 @@
+import { REGIONS } from "./regions";
 import { z } from "zod";
 import { MAX_POST_LENGTH, weightedLength } from "./text";
 
@@ -49,7 +50,11 @@ export const updateProfileSchema = z.object({
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
-export const REPLY_AUDIENCES = ["everyone", "following", "mentioned"] as const;
+/**
+ * Who can reply. "following" = accounts the author follows; "following_network" = those accounts and the accounts
+ * they follow; "mentioned" = only accounts mentioned in the post. People mentioned can always reply.
+ */
+export const REPLY_AUDIENCES = ["everyone", "following", "following_network", "mentioned"] as const;
 export type ReplyAudience = (typeof REPLY_AUDIENCES)[number];
 
 export const createPostSchema = z
@@ -60,6 +65,8 @@ export const createPostSchema = z
     quoteOfId: z.string().optional(),
     mediaIds: z.array(z.string()).max(4).default([]),
     replyAudience: z.enum(REPLY_AUDIENCES).default("everyone"),
+    /** Limit replies to people from these regions (by verified ID country). Omitted or null = everywhere. */
+    replyRegions: z.array(z.enum(REGIONS)).min(1, "Choose at least one region").max(REGIONS.length).nullable().optional(),
     poll: z
       .object({
         options: z.array(z.string().trim().min(1).max(25)).min(2).max(4),
@@ -251,6 +258,7 @@ export const createPhotoNoteSchema = z.object({
     .optional(),
   paidPartnership: z.boolean().default(false),
   replyAudience: z.enum(REPLY_AUDIENCES).default("everyone"),
+  replyRegions: z.array(z.enum(REGIONS)).min(1, "Choose at least one region").max(REGIONS.length).nullable().optional(),
 });
 export type CreatePhotoNoteInput = z.input<typeof createPhotoNoteSchema>;
 

@@ -6,17 +6,18 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MAX_POST_LENGTH, weightedLength, type Media, type Post } from "@projectfeed/shared";
+import { MAX_POST_LENGTH, REGIONS, weightedLength, type Media, type Post } from "@projectfeed/shared";
 import { api, errorMessage } from "../../src/api/client";
 import { updatePostEverywhere } from "../../src/api/cache";
-import { useCreatePost } from "../../src/api/hooks";
+import { useCreatePost, useGifConfig } from "../../src/api/hooks";
 import { formatDuration, uploadWithProgress, waitUntilReady, type LocalAsset } from "../../src/lib/upload";
 import { QuotedPost } from "../../src/components/PostCard";
-import { useSheet } from "../../src/components/Sheet";
 import { toast } from "../../src/components/Toast";
 import { Backdrop, Glass } from "../../src/components/glass";
 import { Avatar, Button, IconButton, Text } from "../../src/components/ui";
 import { useAuth } from "../../src/store/auth";
+import { useGifPick } from "../../src/store/gifPick";
+import { regionsPayload, replyLabel, useReplySettings } from "../../src/store/replySettings";
 import { useSignals } from "../../src/store/signals";
 import { radius, space, useTheme } from "../../src/theme";
 
@@ -45,7 +46,7 @@ let nextLocalId = 1;
 function AttachmentTile({ a, onRemove, onAlt }: { a: Attachment; onRemove: () => void; onAlt: () => void }) {
   const t = useTheme();
   const isVideo = a.asset.kind === "video";
-  const preview = a.media?.status === "ready" && a.media.thumbUrl ? a.media.thumbUrl : isVideo ? null : a.asset.uri;
+  const preview = a.media?.type === "gif" ? a.media.url : a.media?.status === "ready" && a.media.thumbUrl ? a.media.thumbUrl : isVideo ? null : a.asset.uri;
   const width = isVideo ? 200 : 120;
   return (
     <View style={{ width, height: isVideo ? 140 : 120, borderRadius: radius.md, overflow: "hidden", backgroundColor: "#111" }}>
@@ -98,9 +99,6 @@ function AttachmentTile({ a, onRemove, onAlt }: { a: Attachment; onRemove: () =>
   );
 }
 
-const AUDIENCE_LABEL = { everyone: "Everyone can reply", following: "Accounts you follow can reply", mentioned: "Only accounts you mention can reply" } as const;
-type Audience = keyof typeof AUDIENCE_LABEL;
-
 /** Circular-ish character counter: turns amber at 20 left, red past the limit. */
 function Counter({ text }: { text: string }) {
   const t = useTheme();
@@ -129,11 +127,13 @@ export default function Compose() {
   const me = useAuth((s) => s.user);
   const params = useLocalSearchParams<{ replyToId?: string; quoteOfId?: string; editId?: string; pick?: string }>();
   const create = useCreatePost();
-  const openSheet = useSheet((s) => s.open);
 
   const [drafts, setDrafts] = useState<Draft[]>([emptyDraft()]);
   const [active, setActive] = useState(0);
-  const [audience, setAudience] = useState<Audience>("everyone");
+  const audience = useReplySettings((s) => s.audience);
+  const regions = useReplySettings((s) => s.regions);
+  // Every new post starts as "Everyone can reply".
+  useEffect(() => useReplySettings.getState().reset(), []);
   const [paid, setPaid] = useState(false);
   const canLabelPaid = me?.badge === "business" || me?.badge === "creator";
   const [busy, setBusy] = useState(false);
@@ -209,9 +209,34 @@ export default function Compose() {
     update(i, { attachments: [...current.attachments, ...added] });
   };
 
+  // GIF button: one GIF per post, on its own (as on X). The picker hands the attached GIF back via a store.
+  const gifConfig = useGifConfig();
+  const openGifs = () => {
+    const current = drafts[active]!;
+    if (current.poll) return toast("Remove the poll to add a GIF");
+    if (current.attachments.length) return toast("A post can have one GIF, or up to 4 photos");
+    router.push("/gif-picker");
+  };
+  const pickedGif = useGifPick((s) => s.picked);
+  useEffect(() => {
+    if (!pickedGif) return;
+    useGifPick.getState().set(null);
+    const a: Attachment = {
+      localId: String(nextLocalId++),
+      asset: { uri: pickedGif.url, kind: "image", width: pickedGif.width, height: pickedGif.height },
+      state: "ready",
+      progress: 1,
+      media: pickedGif,
+      altText: pickedGif.altText,
+    };
+    setDrafts((ds) => ds.map((d, j) => (j === active ? { ...d, attachments: [a] } : d)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedGif]);
+
   const pickMedia = async (i: number, only?: "videos") => {
     const current = drafts[i]!;
     if (current.poll) return toast("Remove the poll to add media");
+    if (current.attachments.some((a) => a.media?.type === "gif")) return toast("Remove the GIF to add photos or a video");
     if (current.attachments.length >= 4 || current.attachments.some((a) => a.asset.kind === "video")) return toast("A post can have one video, or up to 4 photos");
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: only === "videos" ? ["videos"] : ["images", "videos"],
@@ -262,6 +287,7 @@ export default function Compose() {
             quoteOfId: i === 0 ? params.quoteOfId : undefined,
             mediaIds,
             replyAudience: audience,
+            replyRegions: regionsPayload(regions),
             paidPartnership: i === 0 && paid ? true : undefined,
             poll: d.poll ? { options: d.poll.map((o) => o.trim()).filter(Boolean), durationMinutes: 24 * 60 } : undefined,
           });
@@ -283,16 +309,6 @@ export default function Compose() {
       setBusy(false);
     }
   };
-
-  const chooseAudience = () =>
-    openSheet(
-      (Object.keys(AUDIENCE_LABEL) as Audience[]).map((a) => ({
-        label: AUDIENCE_LABEL[a],
-        icon: a === audience ? "checkmark" : undefined,
-        onPress: () => setAudience(a),
-      })),
-      "Who can reply?",
-    );
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: t.bg }}>
@@ -380,10 +396,15 @@ export default function Compose() {
       <Glass radius={radius.xl} style={{ marginHorizontal: space.sm, marginBottom: (insets.bottom || space.md) + 4, paddingVertical: space.xs }}>
         {!params.replyToId && !isEdit ? (
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Pressable onPress={chooseAudience} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.sm }}>
-              <Ionicons name="earth" size={16} color={t.accent} />
-              <Text weight="700" size="sm" style={{ color: t.accent }}>
-                {AUDIENCE_LABEL[audience]}
+            <Pressable
+              onPress={() => router.push("/reply-settings")}
+              accessibilityRole="button"
+              accessibilityHint="Choose who can reply"
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.sm, flexShrink: 1 }}
+            >
+              <Ionicons name={audience === "everyone" && regions.length === REGIONS.length ? "earth" : "lock-closed"} size={16} color={t.accent} />
+              <Text weight="700" size="sm" numberOfLines={1} style={{ color: t.accent, flexShrink: 1 }}>
+                {replyLabel(audience, regions)}
               </Text>
             </Pressable>
             {canLabelPaid ? (
@@ -406,6 +427,15 @@ export default function Compose() {
             <IconButton name="image-outline" label="Add photos or video" color={t.accent} onPress={() => void pickMedia(active)} />
             <IconButton name="camera-outline" label="Take a photo or video" color={t.accent} onPress={() => void openCamera(active)} />
             <IconButton name="film-outline" label="Add a video" color={t.accent} onPress={() => void pickMedia(active, "videos")} />
+            {gifConfig.data?.enabled ? (
+              <Pressable onPress={openGifs} accessibilityRole="button" accessibilityLabel="Add a GIF" hitSlop={6} style={{ padding: 6 }}>
+                <View style={{ borderWidth: 1.8, borderColor: t.accent, borderRadius: 5, paddingHorizontal: 3, paddingVertical: 1 }}>
+                  <Text weight="800" style={{ color: t.accent, fontSize: 10, letterSpacing: 0.5 }}>
+                    GIF
+                  </Text>
+                </View>
+              </Pressable>
+            ) : null}
             <IconButton
               name="stats-chart-outline"
               label="Add poll"

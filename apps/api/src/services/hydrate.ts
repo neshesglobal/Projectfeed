@@ -1,6 +1,6 @@
 // Turns database rows into API objects, applying viewer-specific state and visibility.
 
-import type { Badge, Media, Poll, Post, UserProfile, UserSummary, ViewerRelationship } from "@projectfeed/shared";
+import { regionOf, type Badge, type Media, type Poll, type Post, type Region, type UserProfile, type UserSummary, type ViewerRelationship } from "@projectfeed/shared";
 import type { Db } from "../db";
 import type { Storage } from "../lib/storage";
 
@@ -161,6 +161,7 @@ interface PostRow extends UserRow {
   reply_to_handle: string | null;
   quote_of_id: string | null;
   reply_audience: Post["replyAudience"];
+  reply_regions: Region[] | null;
   reply_count: number;
   repost_count: number;
   quote_count: number;
@@ -173,6 +174,7 @@ interface PostRow extends UserRow {
   blocked: boolean;
   viewer_follows_author: boolean;
   author_follows_viewer: boolean;
+  author_network_has_viewer: boolean;
   viewer_mentioned: boolean;
 }
 
@@ -212,13 +214,16 @@ export interface MediaRow {
 
 export const MEDIA_COLUMNS = "id, type, storage_key, thumb_key, width, height, alt_text, status, duration_ms, error";
 
+/** GIFs from a GIF library are hotlinked: their keys are already provider CDN URLs. */
+const mediaUrl = (ctx: HydrateCtx, key: string) => (key.startsWith("https://") ? key : ctx.storage.url(key));
+
 export function toMedia(ctx: HydrateCtx, r: MediaRow): Media {
   const ready = r.status === "ready";
   return {
     id: r.id,
     type: r.type,
-    url: ready ? ctx.storage.url(r.storage_key) : "",
-    thumbUrl: ready ? ctx.storage.url(r.thumb_key) : "",
+    url: ready ? mediaUrl(ctx, r.storage_key) : "",
+    thumbUrl: ready ? mediaUrl(ctx, r.thumb_key) : "",
     width: r.width,
     height: r.height,
     altText: r.alt_text,
@@ -273,7 +278,7 @@ export async function hydratePosts(
 
   const rows = await ctx.db<PostRow[]>`
     SELECT p.id AS post_id, p.author_id, p.text, p.created_at, p.edited_at, p.edit_count, p.deleted_at, p.removed_at, p.sensitive, p.lang,
-           p.conversation_id, p.reply_to_id, ru.handle::text AS reply_to_handle, p.quote_of_id, p.reply_audience,
+           p.conversation_id, p.reply_to_id, ru.handle::text AS reply_to_handle, p.quote_of_id, p.reply_audience, p.reply_regions,
            p.reply_count, p.repost_count, p.quote_count, p.like_count, p.bookmark_count, p.view_count,
            u.id, u.handle::text AS handle, u.display_name, am.storage_key AS avatar_key, u.kyc_level, u.is_protected,
            u.status AS author_status, p.paid_partnership, ${ctx.db.unsafe(BADGE_COLUMNS)},
@@ -286,6 +291,9 @@ export async function hydratePosts(
                                             OR (b.blocker_id = p.author_id AND b.blocked_id = ${v})) AS blocked,
            EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ${v} AND f.followee_id = p.author_id) AS viewer_follows_author,
            EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = p.author_id AND f.followee_id = ${v}) AS author_follows_viewer,
+           p.reply_audience = 'following_network' AND EXISTS(
+             SELECT 1 FROM follows f1 JOIN follows f2 ON f2.follower_id = f1.followee_id
+             WHERE f1.follower_id = p.author_id AND f2.followee_id = ${v}) AS author_network_has_viewer,
            EXISTS(SELECT 1 FROM post_mentions pm WHERE pm.post_id = p.id AND pm.user_id = ${v}) AS viewer_mentioned
     FROM posts p
     JOIN users u ON u.id = p.author_id
@@ -294,6 +302,14 @@ export async function hydratePosts(
     LEFT JOIN users ru ON ru.id = p.reply_to_author_id
     LEFT JOIN places pl ON pl.id = p.place_id
     WHERE p.id = ANY(${unique}::bigint[])`;
+
+  // The viewer's region, for region-limited replies: from the verified ID country, else the verified phone country.
+  let viewerRegion: Region | null = null;
+  if (viewerId && rows.some((r) => r.reply_regions)) {
+    const [me] = await ctx.db<{ id_country: string | null; phone_country: string | null }[]>`
+      SELECT id_country, phone_country FROM users WHERE id = ${viewerId}`;
+    viewerRegion = regionOf(me?.id_country) ?? regionOf(me?.phone_country);
+  }
 
   const visibleIds = rows.filter((r) => !r.deleted_at && !r.removed_at).map((r) => r.post_id);
   const quoteIds = rows.map((r) => r.quote_of_id).filter((q): q is string => !!q);
@@ -319,13 +335,13 @@ export async function hydratePosts(
     else if (r.blocked) unavailable = "blocked";
     else if (r.is_protected && !isOwn && !r.viewer_follows_author) unavailable = "protected";
 
-    const canReply =
-      !unavailable &&
-      viewerId !== null &&
-      (r.reply_audience === "everyone" ||
-        isOwn ||
-        (r.reply_audience === "following" && r.author_follows_viewer) ||
-        (r.reply_audience === "mentioned" && r.viewer_mentioned));
+    // The author and anyone mentioned can always reply. Otherwise the audience rule and the region rule both apply.
+    const audienceOk =
+      r.reply_audience === "everyone" ||
+      (r.reply_audience === "following" && r.author_follows_viewer) ||
+      (r.reply_audience === "following_network" && (r.author_follows_viewer || r.author_network_has_viewer));
+    const regionOk = !r.reply_regions || (viewerRegion !== null && r.reply_regions.includes(viewerRegion));
+    const canReply = !unavailable && viewerId !== null && (isOwn || r.viewer_mentioned || (audienceOk && regionOk));
 
     out.set(r.post_id, {
       id: r.post_id,
@@ -340,6 +356,7 @@ export async function hydratePosts(
       media: unavailable ? [] : (media.get(r.post_id) ?? []),
       poll: unavailable ? null : (polls.get(r.post_id) ?? null),
       replyAudience: r.reply_audience,
+      replyRegions: r.reply_regions,
       counts: {
         replies: r.reply_count,
         reposts: r.repost_count,

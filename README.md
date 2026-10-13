@@ -15,7 +15,7 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 | Accounts | Email/handle sign-up and login, rotating refresh tokens with theft detection, password change, sign out everywhere, GDPR data export, in-app account deletion |
 | Profiles | Name, bio, company/role, sectors, location, website, avatar and banner, pinned post, protected accounts, "Follows you" |
 | Graph | Follow/unfollow, follow requests for protected accounts, remove follower, block (two-way), mute, muted words/#tags/$tags, who-to-follow |
-| Posts | 280 weighted characters, @mentions, #hashtags, $cashtags, links, up to 4 images (EXIF stripped), polls, threads, replies with audience controls, quotes, reposts, edit within 30 minutes with history, delete |
+| Posts | 280 weighted characters, @mentions, #hashtags, $cashtags, links, up to 4 images (EXIF stripped), **GIFs** (GIPHY or Tenor search via the API; demo GIFs locally), polls, threads, **"Who can reply"**: everyone, accounts you follow, accounts you follow and who they follow, or only accounts you mention, optionally limited to **regions** (by the replier's verified ID country, so a VPN can't get round it), quotes, reposts, edit within 30 minutes with history, delete |
 | Feeds | **For You** (rule-based Feed Mixer modelled on X's open-source Home Mixer: in-network + "liked by" + sector + popular sources, then filters, scoring, author diversity and an out-of-network cap, with a "why you're seeing this" reason) · **Following** (chronological, with reposts) · pinned **Lists** as Home tabs · "New posts" pill |
 | Photos | Up to 4 per post, camera capture, image descriptions (alt text), EXIF/GPS stripped, WebP re-encode, full-screen viewer with pinch-to-zoom and double-tap zoom |
 | Video | Upload from the library or camera (up to 10 minutes / 512MB) with live upload progress; server transcodes to H.264/AAC MP4 (720p-class, faststart), generates a poster and strips all metadata including location; inline autoplay (muted, one at a time, the most visible card) with duration countdown and a sound toggle; video in DMs |
@@ -104,7 +104,7 @@ The seed creates one staff account per role, all with the password `projectfeed-
 
 ```bash
 createdb projectfeed_test
-pnpm --filter @projectfeed/api test        # 123 integration tests against a real Postgres (and real ffmpeg)
+pnpm --filter @projectfeed/api test        # 138 integration tests against a real Postgres (and real ffmpeg)
 pnpm typecheck                              # API, shared, mobile and admin
 ```
 

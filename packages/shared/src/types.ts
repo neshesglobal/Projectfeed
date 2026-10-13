@@ -90,7 +90,9 @@ export interface Post {
   quote: Post | null; // one level deep only
   media: Media[];
   poll: Poll | null;
-  replyAudience: "everyone" | "following" | "mentioned";
+  replyAudience: "everyone" | "following" | "following_network" | "mentioned";
+  /** Replies limited to people from these regions (by verified ID country); null = everywhere. */
+  replyRegions: import("./regions").Region[] | null;
   counts: PostCounts;
   viewer: PostViewerState;
   deleted: boolean;

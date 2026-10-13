@@ -74,6 +74,7 @@ export function useCreatePost() {
       quoteOfId?: string;
       mediaIds?: string[];
       replyAudience?: string;
+      replyRegions?: string[] | null;
       poll?: { options: string[]; durationMinutes: number };
       paidPartnership?: boolean;
     }) => api<Post>("/posts", { method: "POST", body: input }),
@@ -488,3 +489,31 @@ export function useCollectionAction() {
     },
   });
 }
+
+// ───────────── GIFs ─────────────
+export interface GifResult {
+  id: string;
+  title: string;
+  previewUrl: string;
+  url: string;
+  stillUrl: string;
+  width: number;
+  height: number;
+}
+
+export const useGifConfig = () =>
+  useQuery({
+    queryKey: ["gifs", "config"],
+    staleTime: 60 * 60_000,
+    queryFn: () => api<{ enabled: boolean; provider: string | null; attribution: string | null }>("/gifs/config"),
+  });
+
+export const useGifs = (q: string) =>
+  useInfiniteQuery({
+    queryKey: ["gifs", q],
+    initialPageParam: "",
+    staleTime: 5 * 60_000,
+    queryFn: ({ pageParam }) =>
+      api<{ items: GifResult[]; next: string | null }>(q ? `/gifs/search${qs({ q, cursor: pageParam })}` : `/gifs/trending${qs({ cursor: pageParam })}`),
+    getNextPageParam: (last) => last.next ?? undefined,
+  });
