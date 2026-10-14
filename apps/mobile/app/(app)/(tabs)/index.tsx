@@ -3,15 +3,15 @@ import type { FlashListRef } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
 import { router, useNavigation } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import type { FeedItem, Page } from "@projectfeed/shared";
 import { api } from "../../../src/api/client";
-import { useFollowing, useForYou, useListTimeline, useMyLists, useUnreadCounts } from "../../../src/api/hooks";
+import { useFollowing, useForYou, useListTimeline, useMyLists, useSearchPosts, useUnreadCounts } from "../../../src/api/hooks";
 import { Fab } from "../../../src/components/Fab";
 import { Feed } from "../../../src/components/Feed";
-import { TabHeader } from "../../../src/components/HomeHeader";
+import { FeedFilters, HomeTopBar, type FeedFilter } from "../../../src/components/HomeHeader";
 import { Glass } from "../../../src/components/glass";
-import { Button, EmptyState, IconButton, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { Button, EmptyState, Screen, Text } from "../../../src/components/ui";
 import { StandingBanner } from "../../../src/components/StandingBanner";
 import { WelcomeHero } from "../../../src/components/WelcomeHero";
 import { useAuth } from "../../../src/store/auth";
@@ -24,22 +24,16 @@ function ListFeed({ id }: { id: string }) {
   return <Feed query={q} surface={`list:${id}`} empty={<EmptyState title="No posts yet" body="Posts from members of this list will show up here." />} />;
 }
 
-/** Messages moved from the tab bar to the Home header (Discover took its tab slot), with the unread count. */
-function MessagesButton() {
-  const t = useTheme();
-  const unread = useUnreadCounts().data?.messages ?? 0;
-  return (
-    <View>
-      <IconButton name="paper-plane-outline" glass size={18} label={unread ? `Messages, ${unread} unread` : "Messages"} onPress={() => router.push("/messages")} />
-      {unread > 0 ? (
-        <View pointerEvents="none" style={{ position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: t.like, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: t.bg }}>
-          <Text size="xs" weight="800" style={{ color: "#fff", fontSize: 10 }}>
-            {unread > 99 ? "99+" : unread}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
+/** Topic filters: each is the feed for one hashtag (top posts), reusing post search. */
+const TOPICS: FeedFilter[] = [
+  { key: "topic:travel", label: "Travel", icon: "airplane" },
+  { key: "topic:food", label: "Food", icon: "fork.knife" },
+  { key: "topic:outdoors", label: "Outdoors", icon: "mountain.2" },
+];
+
+function TopicFeed({ tag }: { tag: string }) {
+  const q = useSearchPosts(`#${tag}`, "top");
+  return <Feed query={q} surface={`topic:${tag}`} empty={<EmptyState title={`No #${tag} posts yet`} body={`Posts tagged #${tag} will show up here.`} />} />;
 }
 
 export default function Home() {
@@ -55,8 +49,9 @@ export default function Home() {
   const navigation = useNavigation();
 
   const pinned = (lists.data?.items ?? []).filter((l) => l.viewerPinned);
-  const tabs = [{ key: "for-you", label: "For you" }, { key: "following", label: "Following" }, ...pinned.map((l) => ({ key: `list:${l.id}`, label: l.name }))];
-  const activeTab = tabs.some((x) => x.key === tab) ? tab : "for-you";
+  const tabs: FeedFilter[] = [{ key: "for-you", label: "For you" }, { key: "following", label: "Following" }, ...pinned.map((l) => ({ key: `list:${l.id}`, label: l.name }))];
+  const activeTab = [...tabs, ...TOPICS].some((x) => x.key === tab) ? tab : "for-you";
+  const unread = useUnreadCounts();
   const active = activeTab === "following" ? following : forYou;
 
   // "New posts" pill: poll the Following timeline and compare with what is on screen.
@@ -92,20 +87,14 @@ export default function Home() {
 
   return (
     <Screen>
-      <TabHeader
-        title="Projectfeed"
-        right={
-          <>
-            <IconButton name="color-palette-outline" glass size={18} label="Appearance" onPress={() => router.push("/settings/display")} />
-            <MessagesButton />
-          </>
-        }
-      >
-        <TopTabs value={activeTab} onChange={setTab} tabs={tabs} />
-      </TabHeader>
+      <HomeTopBar unreadMessages={unread.data?.messages ?? 0} />
+      <FeedFilters primary={tabs} topics={TOPICS} value={activeTab} onChange={setTab} />
+      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         {activeTab.startsWith("list:") ? (
           <ListFeed id={activeTab.slice(5)} />
+        ) : activeTab.startsWith("topic:") ? (
+          <TopicFeed key={activeTab} tag={activeTab.slice(6)} />
         ) : (
           <Feed
             key={activeTab}

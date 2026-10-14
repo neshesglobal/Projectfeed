@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { memo } from "react";
-import { Alert, Platform, Pressable, Share, View } from "react-native";
+import { memo, useRef } from "react";
+import { Alert, Animated, Platform, Pressable, Share, StyleSheet, View } from "react-native";
+import { useReducedMotion } from "react-native-reanimated";
 import { formatCount, formatRelativeTime, type FeedItem, type Post, type UserSummary } from "@projectfeed/shared";
 import { api, errorMessage } from "../api/client";
 import {
@@ -25,8 +26,8 @@ import { RichText } from "./RichText";
 import { Stars } from "./Stars";
 import { useSheet, type SheetOption } from "./Sheet";
 import { toast } from "./Toast";
-import { Card } from "./glass";
-import { Avatar, NameLine, Text } from "./ui";
+import { Icon, type IconSymbol } from "./Icon";
+import { Avatar, NameLine, Text, UserBadges } from "./ui";
 
 export const SHARE_BASE = "https://projectfeed.app";
 
@@ -47,47 +48,51 @@ export function openReport(targetType: "post" | "user" | "message", targetId: st
 
 function ActionButton({
   icon,
+  activeIcon,
   count,
   color,
   active,
   label,
   onPress,
   onLongPress,
-  compact,
+  bounce,
 }: {
-  compact?: boolean;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
+  icon: IconSymbol;
+  activeIcon?: IconSymbol;
   count?: number;
   color: string;
   active?: boolean;
   label: string;
   onPress?: () => void;
   onLongPress?: () => void;
+  /** Brief scale-up when the action turns on (likes); skipped with Reduce Motion. */
+  bounce?: boolean;
 }) {
   const t = useTheme();
+  const reduceMotion = useReducedMotion();
+  const scale = useRef(new Animated.Value(1)).current;
   const c = active ? color : t.textMuted;
+  const press = () => {
+    if (bounce && !active && !reduceMotion) {
+      scale.setValue(0.8);
+      Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
+    }
+    onPress?.();
+  };
   return (
     <Pressable
-      onPress={onPress}
+      onPress={press}
       onLongPress={onLongPress}
-      hitSlop={6}
       accessibilityRole="button"
-      accessibilityLabel={`${label}${count ? `, ${count}` : ""}`}
+      accessibilityLabel={`${label}${count ? `, ${formatCount(count)}` : ""}`}
       accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 5,
-        paddingHorizontal: 10,
-        paddingVertical: compact ? 4 : 6,
-        borderRadius: radius.pill,
-        backgroundColor: active ? `${color}22` : pressed ? t.cardPressed : "transparent",
-        transform: [{ scale: pressed ? 0.94 : 1 }],
-      })}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 44, minHeight: 44, paddingRight: 4, opacity: pressed ? 0.55 : 1 })}
     >
-      <Ionicons name={icon} size={compact ? 16 : 18} color={c} />
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Icon name={active && activeIcon ? activeIcon : icon} size={20} color={c} />
+      </Animated.View>
       {count !== undefined && count > 0 ? (
-        <Text size="sm" style={{ color: c }}>
+        <Text size="sm" style={{ color: active ? color : t.textMuted, fontVariant: ["tabular-nums"] }}>
           {formatCount(count)}
         </Text>
       ) : null}
@@ -95,9 +100,9 @@ function ActionButton({
   );
 }
 
-export function PostActions({ post, large, compact, dense }: { post: Post; large?: boolean; compact?: boolean; dense?: boolean }) {
+/** Like, comment and repost on the left; bookmark and share on the right. The post page also shows views. */
+export function PostActions({ post, large }: { post: Post; large?: boolean; compact?: boolean; dense?: boolean }) {
   const t = useTheme();
-  const c = (compact || dense) && !large;
   const like = useToggleLike();
   const repost = useToggleRepost();
   const bookmark = useToggleBookmark();
@@ -116,26 +121,25 @@ export function PostActions({ post, large, compact, dense }: { post: Post; large
   };
 
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: large ? space.md : dense ? 2 : c ? 6 : space.sm, marginBottom: dense ? -6 : c ? -4 : 0, marginHorizontal: -10 }}>
-      <ActionButton
-        compact={c}
-        icon="chatbubble-outline"
-        label="Reply"
-        count={post.counts.replies}
-        color={t.accent}
-        onPress={() =>
-          post.viewer.canReply
-            ? router.push({ pathname: "/compose", params: { replyToId: post.id } })
-            : toast("Only some accounts can reply to this post")
-        }
-      />
-      <ActionButton compact={c} icon="repeat" label="Repost" count={post.counts.reposts + post.counts.quotes} color={t.repost} active={post.viewer.reposted} onPress={onRepost} />
-      <ActionButton compact={c} icon={post.viewer.liked ? "heart" : "heart-outline"} label="Like" count={post.counts.likes} color={t.like} active={post.viewer.liked} onPress={() => like.mutate(post)} />
-      {c ? null : <ActionButton icon="stats-chart" label="Views" count={post.counts.views} color={t.textMuted} />}
-      <View style={{ flexDirection: "row" }}>
-        <ActionButton compact={c} icon={post.viewer.bookmarked ? "bookmark" : "bookmark-outline"} label="Bookmark" color={t.accent} active={post.viewer.bookmarked} onPress={() => bookmark.mutate(post)} />
-        <ActionButton compact={c} icon="share-outline" label="Share" color={t.textMuted} onPress={onShare} />
+    <View style={{ flexDirection: "row", alignItems: "center", marginTop: large ? space.sm : 2 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg, flex: 1 }}>
+        <ActionButton icon="heart" activeIcon="heart.fill" label={post.viewer.liked ? "Unlike" : "Like"} count={post.counts.likes} color={t.like} active={post.viewer.liked} bounce onPress={() => like.mutate(post)} />
+        <ActionButton
+          icon="bubble"
+          label="Comment"
+          count={post.counts.replies}
+          color={t.accent}
+          onPress={() =>
+            post.viewer.canReply
+              ? router.push({ pathname: "/compose", params: { replyToId: post.id } })
+              : toast("Only some accounts can reply to this post")
+          }
+        />
+        <ActionButton icon="arrow.2.squarepath" label={post.viewer.reposted ? "Reposted" : "Repost"} count={post.counts.reposts + post.counts.quotes} color={t.repost} active={post.viewer.reposted} onPress={onRepost} />
+        {large ? <ActionButton icon="chart.bar" label="Views" count={post.counts.views} color={t.textMuted} /> : null}
       </View>
+      <ActionButton icon="bookmark" activeIcon="bookmark.fill" label={post.viewer.bookmarked ? "Remove bookmark" : "Bookmark"} color={t.accent} active={post.viewer.bookmarked} onPress={() => bookmark.mutate(post)} />
+      <ActionButton icon="square.and.arrow.up" label="Share" color={t.textMuted} onPress={onShare} />
     </View>
   );
 }
@@ -217,34 +221,54 @@ export function PaidPartnership() {
   );
 }
 
-/** Discover notes in timelines: the title, the verified-review rating and the place. */
-function NoteHeadline({ post }: { post: Post }) {
+/** Verified-review line: the real star rating plus a labelled check (never colour alone). */
+export function ReviewLine({ rating }: { rating: number }) {
   const t = useTheme();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }} accessible accessibilityLabel={`Verified review, ${rating} out of 5 stars`}>
+      <Stars value={rating} size={15} />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: t.accentSoft }}>
+        <Icon name="checkmark.seal.fill" size={13} color={t.accent} />
+        <Text size="xs" weight="600" style={{ color: t.accent }}>
+          Verified review
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/** Location line: a tappable place with a small pin. */
+export function LocationLine({ place }: { place: NonNullable<Post["place"]> }) {
+  const t = useTheme();
+  return (
+    <Pressable
+      onPress={() => router.push(`/place/${place.id}`)}
+      accessibilityRole="link"
+      accessibilityLabel={`Location: ${place.name}${place.city ? `, ${place.city}` : ""}`}
+      hitSlop={{ top: 6, bottom: 6 }}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", opacity: pressed ? 0.6 : 1 })}
+    >
+      <Icon name="mappin" size={14} color={t.textMuted} />
+      <Text size="sm" numberOfLines={1} style={{ color: t.mode === "dark" ? t.accent : t.text, flexShrink: 1 }}>
+        {place.name}
+        {place.city ? `, ${place.city}` : ""}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Discover notes in timelines: review line, title (same size as the text, semibold) and place. */
+function NoteHeadline({ post }: { post: Post }) {
   if (post.kind !== "note") return null;
   return (
-    <View style={{ marginTop: 6, gap: 3 }}>
-      {post.review ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Stars value={post.review.rating} size={13} />
-          <Text size="xs" weight="700" muted>
-            Verified review
-          </Text>
-        </View>
-      ) : null}
+    <View style={{ marginTop: 6, gap: 6 }}>
+      {post.review ? <ReviewLine rating={post.review.rating} /> : null}
       {post.title ? (
-        <Text weight="800" size="lg">
+        <Text weight="600" size="md" style={{ lineHeight: 22 }}>
           {post.title}
         </Text>
       ) : null}
-      {post.place ? (
-        <Pressable onPress={() => router.push(`/place/${post.place!.id}`)} accessibilityRole="link" style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-          <Ionicons name="location" size={13} color={t.accent} />
-          <Text size="sm" weight="600" numberOfLines={1} style={{ color: t.accent, flexShrink: 1 }}>
-            {post.place.name}
-            {post.place.city ? ` · ${post.place.city}` : ""}
-          </Text>
-        </Pressable>
-      ) : null}
+      {post.place ? <LocationLine place={post.place} /> : null}
     </View>
   );
 }
@@ -293,18 +317,27 @@ export function QuotedPost({ post }: { post: Post }) {
   );
 }
 
-function SocialContext({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
+function SocialContext({ icon, text }: { icon: IconSymbol; text: string }) {
   const t = useTheme();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 5, marginBottom: space.md, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: t.accentSoft }}>
-      <Ionicons name={icon} size={12} color={t.accent} />
-      <Text size="xs" weight="700" numberOfLines={1} style={{ color: t.accent }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, marginLeft: AVATAR - 16 }} accessibilityLabel={text}>
+      <View style={{ width: 16, alignItems: "flex-end" }}>
+        <Icon name={icon} size={13} color={t.textMuted} />
+      </View>
+      <Text size="xs" weight="600" muted numberOfLines={1} style={{ flexShrink: 1 }}>
         {text}
       </Text>
     </View>
   );
 }
 
+const AVATAR = 42;
+const GUTTER = 12;
+
+/**
+ * A post in a list: no card, just content on the background, separated by hairline dividers.
+ * Author line, then title/location/text indented under the name, then full-width media and the action row.
+ */
 export const PostCard = memo(function PostCard({
   post,
   repostedBy,
@@ -313,7 +346,6 @@ export const PostCard = memo(function PostCard({
   threadLineAbove,
   threadLineBelow,
   surface = "feed",
-  segment,
 }: {
   post: Post;
   repostedBy?: UserSummary | null;
@@ -321,14 +353,13 @@ export const PostCard = memo(function PostCard({
   pinned?: boolean;
   threadLineAbove?: boolean;
   threadLineBelow?: boolean;
-  /** Position inside a continuous dense panel ("first" gets the rounded top). */
+  /** Kept for callers; every list now uses the same flat layout. */
   segment?: "first" | "middle";
   surface?: string;
 }) {
   const t = useTheme();
   const density = usePrefs((st) => st.density);
-  // Thread and notification surfaces keep separate cards; "dense" applies to timelines only.
-  const compact = density !== "comfortable";
+  const pad = density === "comfortable" ? 20 : density === "compact" ? 16 : 14;
   const menu = usePostMenu();
   const goProfile = () => {
     track({ type: "click_profile", postId: post.id, surface });
@@ -339,139 +370,73 @@ export const PostCard = memo(function PostCard({
     router.push(post.kind === "note" ? `/note/${post.id}` : `/post/${post.id}`);
   };
 
-  // Compact: social context folds into the meta line, smaller avatar, tighter padding (~4 text posts per screen).
   const context = pinned ? "Pinned" : repostedBy ? `${repostedBy.displayName} reposted` : reason ?? null;
-  const contextIcon: React.ComponentProps<typeof Ionicons>["name"] = pinned ? "pin" : repostedBy ? "repeat" : "sparkles";
-  // Inline label for compact mode: the icon carries the verb, so a repost shows just the reposter's first name.
-  const shortContext = pinned ? "Pinned" : repostedBy ? repostedBy.displayName.split(" ")[0] : reason ?? "";
-
-  if (density === "dense" && segment) {
-    // One continuous glass panel: rows share a frosted background, separated by hairlines.
-    // Text sits beside the avatar and name · handle · time share one line (≈5 text posts per screen).
-    const first = segment === "first";
-    return (
-      <View style={{ paddingHorizontal: space.md, paddingTop: first ? space.xs : 0 }}>
-        <Pressable
-          onPress={goPost}
-          accessibilityHint="Opens the post"
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            gap: 10,
-            paddingHorizontal: 14,
-            paddingTop: 12,
-            paddingBottom: 10,
-            backgroundColor: pressed ? t.cardPressed : t.card,
-            borderColor: t.cardBorder,
-            borderLeftWidth: 1,
-            borderRightWidth: 1,
-            borderTopWidth: first ? 1 : 0,
-            borderBottomWidth: 1,
-            borderBottomColor: t.border,
-            borderTopLeftRadius: first ? radius.lg : 0,
-            borderTopRightRadius: first ? radius.lg : 0,
-          })}
-        >
-          <Avatar user={post.author} size={36} onPress={goProfile} />
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <View style={{ flexShrink: 1 }}>
-                <NameLine user={post.author} onPress={goProfile} />
-              </View>
-              <Text muted size="sm" numberOfLines={1} style={{ flexShrink: 2 }}>
-                @{post.author.handle}
-              </Text>
-              <Text muted size="sm" style={{ flexShrink: 0 }}>
-                · {formatRelativeTime(post.createdAt)}
-              </Text>
-              <View style={{ flex: 1 }} />
-              <Pressable onPress={() => menu(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel="More options">
-                <Ionicons name="ellipsis-horizontal" size={16} color={t.textMuted} />
-              </Pressable>
-            </View>
-            {context ? (
-              <View accessibilityLabel={context} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 }}>
-                <Ionicons name={contextIcon} size={11} color={t.accent} />
-                <Text size="xs" weight="600" numberOfLines={1} style={{ color: t.accent }}>
-                  {context}
-                </Text>
-              </View>
-            ) : null}
-            {post.replyTo ? (
-              <Text muted size="sm">
-                Replying to <Text size="sm" weight="600" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
-              </Text>
-            ) : null}
-            {post.paidPartnership ? <PaidPartnership /> : null}
-            <NoteHeadline post={post} />
-            {post.text ? (
-              <View style={{ marginTop: 2 }}>
-                <RichText text={post.text} postId={post.id} />
-                <TranslatePost post={post} />
-              </View>
-            ) : null}
-            <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
-            <NoteCard post={post} />
-            {post.poll ? <PollView post={post} /> : null}
-            {post.quote ? <QuotedPost post={post.quote} /> : null}
-            <PostActions post={post} dense />
-          </View>
-        </Pressable>
-      </View>
-    );
-  }
+  const contextIcon: IconSymbol = pinned ? "pin" : repostedBy ? "arrow.2.squarepath" : "sparkles";
+  const threadLine = { position: "absolute" as const, left: space.lg + AVATAR / 2 - 1, width: 2, backgroundColor: t.border };
 
   return (
-    <View style={{ paddingHorizontal: space.md, paddingTop: threadLineAbove ? 0 : compact ? 6 : space.sm }}>
-      <Card onPress={goPost} accessibilityHint="Opens the post" padding={compact ? 14 : space.lg} style={{ borderRadius: compact ? radius.lg : radius.xl }}>
-        {!compact && context ? <SocialContext icon={contextIcon} text={context} /> : null}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: compact ? 10 : space.md }}>
-          <Avatar user={post.author} size={compact ? 38 : 44} onPress={goProfile} />
-          <View style={{ flex: 1 }}>
-            <NameLine user={post.author} onPress={goProfile} />
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              {/* The handle gives way first; the time never truncates. */}
-              <Text muted size="sm" numberOfLines={1} style={{ flexShrink: 1 }}>
+    <Pressable
+      onPress={goPost}
+      accessibilityHint="Opens the post"
+      style={({ pressed }) => ({
+        paddingHorizontal: space.lg,
+        paddingTop: threadLineAbove ? 4 : pad,
+        paddingBottom: threadLineBelow ? 0 : pad - 8,
+        backgroundColor: pressed ? t.cardPressed : "transparent",
+        borderBottomWidth: threadLineBelow ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: t.border,
+      })}
+    >
+      {threadLineAbove ? <View style={[threadLine, { top: 0, height: 4 }]} /> : null}
+      {threadLineBelow ? <View style={[threadLine, { top: pad + AVATAR + 4, bottom: 0 }]} /> : null}
+      {context ? <SocialContext icon={contextIcon} text={context} /> : null}
+      <View style={{ flexDirection: "row", gap: GUTTER }}>
+        <Avatar user={post.author} size={AVATAR} onPress={goProfile} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", minHeight: 22 }}>
+            {/* Name and badges take their natural width first; the username and date share what is left,
+                and the username is the part that truncates. */}
+            <Pressable onPress={goProfile} accessibilityRole="link" style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, minWidth: 0 }}>
+              <Text weight="600" size="md" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {post.author.displayName}
+              </Text>
+              <UserBadges user={post.author} size={15} />
+            </Pressable>
+            <View style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, flexDirection: "row", alignItems: "center", overflow: "hidden", marginLeft: 5 }}>
+              <Text muted size="sm" numberOfLines={1} style={{ flexShrink: 1, minWidth: 0 }} onPress={goProfile}>
                 @{post.author.handle}
               </Text>
-              <Text muted size="sm" style={{ flexShrink: 0 }}>
-                · {formatRelativeTime(post.createdAt)}
+              <Text muted size="sm" numberOfLines={1} style={{ flexShrink: 0 }}>
+                {"\u00A0· "}
+                {formatRelativeTime(post.createdAt)}
                 {post.editedAt ? " · Edited" : ""}
               </Text>
-              {compact && context ? (
-                <View accessibilityLabel={context} style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 2, marginLeft: 2 }}>
-                  <Ionicons name={contextIcon} size={12} color={t.accent} />
-                  <Text size="sm" weight="600" numberOfLines={1} style={{ color: t.accent, flexShrink: 1 }}>
-                    {shortContext}
-                  </Text>
-                </View>
-              ) : null}
             </View>
+            <Pressable onPress={() => menu(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel="More options" style={{ width: 32, height: 28, alignItems: "flex-end", justifyContent: "center" }}>
+              <Icon name="ellipsis" size={17} color={t.textMuted} />
+            </Pressable>
           </View>
-          <Pressable onPress={() => menu(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel="More options" style={{ padding: 4 }}>
-            <Ionicons name="ellipsis-horizontal" size={18} color={t.textMuted} />
-          </Pressable>
+          {post.replyTo ? (
+            <Text muted size="sm">
+              Replying to <Text size="sm" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
+            </Text>
+          ) : null}
+          {post.paidPartnership ? <PaidPartnership /> : null}
+          <NoteHeadline post={post} />
+          {post.text ? (
+            <View style={{ marginTop: post.kind === "note" ? 6 : 2 }}>
+              <RichText text={post.text} postId={post.id} />
+              <TranslatePost post={post} />
+            </View>
+          ) : null}
+          {post.poll ? <PollView post={post} /> : null}
+          {post.quote ? <QuotedPost post={post.quote} /> : null}
+          <NoteCard post={post} />
         </View>
-        {post.replyTo ? (
-          <Text muted size="sm" style={{ marginTop: compact ? 6 : space.sm }}>
-            Replying to <Text size="sm" weight="600" style={{ color: t.accent }}>@{post.replyTo.handle}</Text>
-          </Text>
-        ) : null}
-        {post.paidPartnership ? <PaidPartnership /> : null}
-        <NoteHeadline post={post} />
-        {post.text ? (
-          <View style={{ marginTop: compact ? 6 : space.sm }}>
-            <RichText text={post.text} postId={post.id} />
-            <TranslatePost post={post} />
-          </View>
-        ) : null}
-        <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
-        <NoteCard post={post} />
-        {post.poll ? <PollView post={post} /> : null}
-        {post.quote ? <QuotedPost post={post.quote} /> : null}
-        <PostActions post={post} compact={compact} />
-      </Card>
-      {threadLineBelow ? <View style={{ width: 2, height: space.md, marginLeft: space.lg + 21, backgroundColor: t.accent, opacity: 0.45, borderRadius: 1 }} /> : null}
-    </View>
+      </View>
+      <MediaGrid media={post.media} postId={post.id} surface={surface} sensitive={post.sensitive} />
+      <PostActions post={post} />
+    </Pressable>
   );
 });
 

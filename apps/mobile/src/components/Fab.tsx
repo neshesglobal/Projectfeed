@@ -1,40 +1,44 @@
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { Pressable } from "react-native";
+import * as Haptics from "expo-haptics";
+import { Platform, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tabBarSpace, useTheme } from "../theme";
+import { Icon } from "./Icon";
 import type { IconName } from "./ui";
 
-/** Floating action button: a glowing gradient orb that sits just above the floating tab bar. */
-export function Fab({ icon = "add", label, onPress, aboveTabBar = true }: { icon?: IconName; label: string; onPress: () => void; aboveTabBar?: boolean }) {
+/**
+ * Compose button: a solid 56 pt circle in the accent fill, bottom-right and clear of the tab bar.
+ * `icon` is kept for callers; the glyph is always the SF Symbol "plus".
+ */
+export function Fab({ label, onPress, aboveTabBar = true }: { icon?: IconName; label: string; onPress: () => void; aboveTabBar?: boolean }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        if (Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityLabel={label}
       style={({ pressed }) => ({
         position: "absolute",
-        right: 20,
+        right: 16,
         bottom: aboveTabBar ? tabBarSpace(insets.bottom) : insets.bottom + 20,
-        borderRadius: 30,
-        transform: [{ scale: pressed ? 0.93 : 1 }],
-        shadowColor: t.accentGradient[1],
-        shadowOpacity: 0.6,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 10,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: t.accentGradient[0],
+        transform: [{ scale: pressed ? 0.94 : 1 }],
+        shadowColor: "#000",
+        shadowOpacity: t.mode === "dark" ? 0.4 : 0.18,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
       })}
     >
-      <LinearGradient
-        colors={t.accentGradient}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
-        style={{ width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" }}
-      >
-        <Ionicons name={icon} size={28} color="#fff" />
-      </LinearGradient>
+      <Icon name="plus" size={24} color="#FFFFFF" weight="semibold" />
     </Pressable>
   );
 }

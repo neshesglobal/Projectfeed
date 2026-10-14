@@ -31,30 +31,30 @@ An X-class real-time social app for iOS and Android: a React Native (Expo) clien
 | Moderation | **Trust & Safety console** (`apps/admin`): priority report queue, public content and latest-uploads browsing, account lookup, remove/restore, sensitive labels, reach limits, warnings, suspensions (read-only), bans, appeals reviewed by a different moderator, five staff roles, **tiered access** to protected posts and DMs with a typed justification, and an **append-only access log**. Users get a statement of reasons and can appeal from **Settings → Account status**. See `docs/MODERATION.md` |
 | Upload screening | Every photo and sampled video keyframe is hash-matched **before storage**; a match is quarantined (never stored), the account is frozen silently and a P0 report goes to compliance. Pluggable scanner (local hash list for development; PhotoDNA adapter stub) |
 | Event log | Impressions, dwell, clicks: the training data for the future ML ranker |
-| Design | **Liquid Glass** language (see below); Midnight, Dark and Daylight themes; accessibility labels |
+| Design | Navy and porcelain design language (see below); Daylight, Midnight and true-black themes; SF Symbols on iPhone; Dynamic Type; accessibility labels |
 
 Screenshots (web build of the same app) are in `docs/screenshots/`.
 
-## Design language: Liquid Glass
+## Design language
 
-Inspired by Apple's Liquid Glass, and deliberately unlike X's flat black-and-white list:
+Deep navy, midnight blue and soft porcelain with a restrained blue accent. Content sits directly on the background;
+translucent native materials are kept for navigation only.
 
-- **Three themes** (Settings → Appearance, with live previews):
-  - **Midnight:** deep violet gradient with soft light orbs.
-  - **Dark:** true dark mode, near-black with neutral graphite glass and violet only for accents. Easier on the eyes at night and OLED-friendly.
-  - **Daylight:** soft lavender.
-  - **Automatic** (default) follows the device: Daylight by day, and at night the user's choice of Midnight or Dark.
-- **Chrome is real glass:** the floating capsule tab bar, search capsule, top-bar buttons, bottom sheets, toasts, the composer toolbar and the account panel.
-  - iOS 26+: Apple's native Liquid Glass (`expo-glass-effect`).
-  - Older iOS and web: system blur.
-  - Android: a tinted translucent fill, because live blur is costly there.
-- **Content is frosted, not blurred:** posts, trends and suggestion cards are translucent rounded cards with a specular edge. This follows Apple's guidance to keep glass on the navigation layer, and keeps long feeds smooth.
-- **Shapes and type:** large bold titles, concentric radii, pill chips with a glowing violet active state, gradient primary buttons.
-- **Feed density:** Dense by default: one continuous glass panel, about 5 text posts per screen. Users can switch to Compact (separate cards, about 4 per screen) or Comfortable (roomiest) under Settings → Appearance; the choice is saved on the device.
-- **Gold is reserved for the ID-verified badge.**
+- **Themes** (Settings → Appearance):
+  - **Daylight:** porcelain `#FAFAF8`, navy text `#142033`, accent `#2459A6`.
+  - **Midnight:** `#0B1018` with `#151E2B` surfaces, accent `#75A7FF`.
+  - **Dark:** true black for OLED screens, same blue accent.
+  - **Automatic** (default) follows the device: Daylight by day, and the user's dark choice at night.
+- **Posts are not cards.** Each post sits on the background with a hairline divider. The author line comes first, then the title, place and text indented under the name, then full-width media and the action row.
+- **Type:** San Francisco on iPhone, scaling with Dynamic Type. Post titles and body text are both 16 pt; titles are semibold. Names are 16 pt semibold; usernames, places and counts are 14 pt.
+- **Icons:** SF Symbols on iPhone (`expo-symbols`), with matching Ionicons on Android and the web (`src/components/Icon.tsx`).
+- **Home:** a compact header (brand mark; search, messages and the account avatar), then filter capsules (For you, Following, pinned lists, and the Travel, Food and Outdoors topics). The selected capsule is solid navy by day and bright blue at night.
+- **Navigation:** five tabs (Home, Discover, Trends, Reels, Activity) on the platform material. On iOS 26+ that is Apple's native Liquid Glass (`expo-glass-effect`); older iOS and the web use system blur. Compose is a separate 56 pt button above the tab bar.
+- **Media:** 12 pt corners and 4 pt gaps. One, two, three and four photo layouts, plus a "+N" count for longer notes.
+- **Gold is reserved for the ID-verified seal**, so it is never confused with the accent or the blue business badge.
 - **Tokens:** all in `apps/mobile/src/theme/index.ts`; primitives in `src/components/glass.tsx`.
 
-Screenshots are in `docs/screenshots/liquid-glass/`.
+Screenshots: `docs/screenshots/home-redesign/`.
 
 ## Repository layout
 

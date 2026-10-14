@@ -7,9 +7,9 @@ import { usePrefs, type ThemePref } from "../../../src/store/prefs";
 import { radius, space, themes, useTheme, type ThemeName } from "../../../src/theme";
 
 const LOOKS: { pref: ThemePref; theme: ThemeName; label: string; body: string }[] = [
-  { pref: "dark", theme: "midnight", label: "Midnight", body: "Deep violet glass" },
+  { pref: "dark", theme: "midnight", label: "Midnight", body: "Deep midnight blue" },
   { pref: "black", theme: "dark", label: "Dark", body: "True dark · OLED friendly" },
-  { pref: "light", theme: "light", label: "Daylight", body: "Soft lavender glass" },
+  { pref: "light", theme: "light", label: "Daylight", body: "Soft porcelain" },
 ];
 
 /** Miniature of the app in a given theme: backdrop, a post card and the floating tab bar. */
@@ -111,7 +111,7 @@ export default function Display() {
           <>
             <SectionLabel>AT NIGHT, USE</SectionLabel>
             <Group>
-              <RadioRow first label="Midnight" body="Deep violet glass" checked={autoDark === "midnight"} onPress={() => setAutoDark("midnight")} />
+              <RadioRow first label="Midnight" body="Deep midnight blue" checked={autoDark === "midnight"} onPress={() => setAutoDark("midnight")} />
               <RadioRow label="Dark" body="True dark · OLED friendly" checked={autoDark === "dark"} onPress={() => setAutoDark("dark")} />
             </Group>
           </>
@@ -121,9 +121,9 @@ export default function Display() {
         <Group>
           {(
             [
-              ["dense", "Dense (default)", "Most posts per screen, one continuous panel"],
-              ["compact", "Compact", "Separate glass cards, about 4 posts per screen"],
-              ["comfortable", "Comfortable", "Roomier cards, repost labels as pills, view counts"],
+              ["dense", "Dense (default)", "Tighter spacing between posts"],
+              ["compact", "Compact", "A little more room between posts"],
+              ["comfortable", "Comfortable", "The most breathing room"],
             ] as const
           ).map(([key, label, body], i) => (
             <RadioRow key={key} first={i === 0} label={label} body={body} checked={density === key} onPress={() => setDensity(key)} />

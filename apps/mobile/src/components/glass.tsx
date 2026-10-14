@@ -1,6 +1,5 @@
 import { BlurView } from "expo-blur";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
-import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import { radius as R, space, useTheme } from "../theme";
@@ -83,29 +82,10 @@ export function Glass({
   );
 }
 
-/**
- * Full-screen ambient backdrop: deep gradient plus two soft light orbs. Gives the glass something
- * to refract and gives Projectfeed its own identity (X is flat black/white).
- */
+/** Full-screen backdrop: the flat theme background (content takes priority over decoration). */
 export function Backdrop() {
   const t = useTheme();
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <LinearGradient colors={t.gradient} locations={[0, 0.38, 0.85]} style={StyleSheet.absoluteFill} />
-      <LinearGradient
-        colors={[t.orbA, "transparent"]}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.2, y: 0.45 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={["transparent", t.orbB, "transparent"]}
-        start={{ x: 0, y: 0.25 }}
-        end={{ x: 1, y: 0.7 }}
-        style={[StyleSheet.absoluteFill, { opacity: 0.6 }]}
-      />
-    </View>
-  );
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: t.bg }]} />;
 }
 
 /** Frosted content card (no live blur, so long feeds stay at 60fps). */
@@ -135,7 +115,7 @@ export function Card({
   );
 }
 
-/** Pill chip. Active chips glow with the accent gradient, like the reference "General Book Club" pill. */
+/** Filter capsule. Selected: solid deep navy (day) or bright blue (night); unselected: hairline outline. */
 export function Chip({ label, active, onPress, icon }: { label: string; active?: boolean; onPress?: () => void; icon?: ReactNode }) {
   const t = useTheme();
   return (
@@ -143,53 +123,23 @@ export function Chip({ label, active, onPress, icon }: { label: string; active?:
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => [
-        {
-          borderRadius: R.pill,
-          overflow: "hidden",
-          opacity: pressed ? 0.85 : 1,
-        },
-        active && {
-          shadowColor: t.accentGradient[1],
-          shadowOpacity: 0.55,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 6,
-        },
-      ]}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        minHeight: 36,
+        paddingHorizontal: 14,
+        borderRadius: R.pill,
+        backgroundColor: active ? t.selected : pressed ? t.cardPressed : "transparent",
+        borderWidth: StyleSheet.hairlineWidth * 2,
+        borderColor: active ? t.selected : t.cardBorder,
+        opacity: pressed ? 0.85 : 1,
+      })}
     >
-      {active ? (
-        <LinearGradient
-          colors={t.accentGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: 9, borderRadius: R.pill }}
-        >
-          {icon}
-          <Text weight="700" size="sm" style={{ color: "#fff" }}>
-            {label}
-          </Text>
-        </LinearGradient>
-      ) : (
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingHorizontal: space.lg,
-            paddingVertical: 9,
-            borderRadius: R.pill,
-            backgroundColor: t.bgInput,
-            borderWidth: StyleSheet.hairlineWidth * 2,
-            borderColor: t.cardBorder,
-          }}
-        >
-          {icon}
-          <Text weight="600" size="sm">
-            {label}
-          </Text>
-        </View>
-      )}
+      {icon}
+      <Text weight={active ? "600" : "500"} size="sm" style={{ color: active ? "#FFFFFF" : t.text }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }

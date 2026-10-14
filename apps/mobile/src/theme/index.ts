@@ -2,14 +2,14 @@ import { useColorScheme } from "react-native";
 import { usePrefs, type ThemePref } from "../store/prefs";
 
 /**
- * Projectfeed design tokens — "Liquid Glass" language.
+ * Projectfeed design tokens.
  *
- * Layers, back to front:
- *   1. Backdrop   — a deep violet gradient with soft light orbs (never flat black like X).
- *   2. Content    — frosted, translucent cards with a hairline specular edge (no blur: cheap to scroll).
- *   3. Chrome     — real glass (native Liquid Glass on iOS 26, blur elsewhere) for the floating tab bar,
- *                   top bars, sheets, search and buttons — content visibly flows underneath.
- * Accent is violet; gold is reserved for the ID-verified badge (trust signal).
+ * Deep navy, midnight blue and soft porcelain, with a restrained blue accent. Content sits directly on a flat
+ * background (no cards around posts, no decorative gradients); translucent native materials are kept for chrome
+ * only (tab bar, sheets, search). Gold is reserved for the ID-verified seal, so it never competes with the accent.
+ *
+ * Theme names are kept for stored preferences: "midnight" is the standard dark look, "dark" is the true-black
+ * (OLED) variant and "light" is the porcelain day look.
  */
 export type ThemeName = "midnight" | "dark" | "light";
 
@@ -18,13 +18,13 @@ export interface Theme {
   name: ThemeName;
   /** Luminance family: drives blur tint, shadows and status-bar style. */
   mode: "light" | "dark";
-  /** Solid base colour behind the gradient (also used where a solid surface is required). */
+  /** Primary background. */
   bg: string;
-  /** Backdrop gradient, top → bottom. */
+  /** Backdrop, top → bottom. Flat in this design language; kept as a token so screens can share one backdrop. */
   gradient: [string, string, string];
-  /** Soft light orbs over the backdrop. */
   orbA: string;
   orbB: string;
+  /** Secondary surface (sheets, inputs, grouped settings). */
   bgElevated: string;
   bgInput: string;
   card: string;
@@ -36,11 +36,16 @@ export interface Theme {
   blurTint: "dark" | "light" | "systemChromeMaterialDark" | "systemChromeMaterialLight";
   text: string;
   textMuted: string;
+  /** Hairline dividers between posts and rows. */
   border: string;
+  /** Links, hashtags, active icons. */
   accent: string;
   accentSoft: string;
+  /** Filled primary controls (buttons, compose). Flat: both stops are the same colour. */
   accentGradient: [string, string];
   accentText: string;
+  /** Selected filter capsule: deep navy by day, bright blue at night. */
+  selected: string;
   verified: string;
   like: string;
   repost: string;
@@ -51,103 +56,103 @@ export interface Theme {
 }
 
 export const themes: Record<ThemeName, Theme> = {
-  /** Midnight: deep violet glass — the signature look. */
+  /** Midnight: deep midnight blue — the standard dark appearance. */
   midnight: {
     name: "midnight",
     mode: "dark",
-    bg: "#0A0911",
-    gradient: ["#34186E", "#170E33", "#0A0911"],
-    orbA: "rgba(139, 92, 246, 0.35)",
-    orbB: "rgba(79, 70, 229, 0.22)",
-    bgElevated: "rgba(255,255,255,0.08)",
-    bgInput: "rgba(255,255,255,0.09)",
-    card: "rgba(255,255,255,0.055)",
-    cardBorder: "rgba(255,255,255,0.10)",
-    cardPressed: "rgba(255,255,255,0.10)",
-    glassTint: "rgba(28, 20, 52, 0.62)",
-    glassBorder: "rgba(255,255,255,0.16)",
-    glassHighlight: "rgba(255,255,255,0.28)",
+    bg: "#0B1018",
+    gradient: ["#0B1018", "#0B1018", "#0B1018"],
+    orbA: "transparent",
+    orbB: "transparent",
+    bgElevated: "#151E2B",
+    bgInput: "#151E2B",
+    card: "#151E2B",
+    cardBorder: "#253142",
+    cardPressed: "#1B2636",
+    glassTint: "rgba(16, 23, 34, 0.78)",
+    glassBorder: "rgba(255,255,255,0.10)",
+    glassHighlight: "rgba(255,255,255,0.16)",
     blurTint: "systemChromeMaterialDark",
-    text: "#F5F3FF",
-    textMuted: "rgba(226, 220, 250, 0.62)",
-    border: "rgba(255,255,255,0.08)",
-    accent: "#A78BFA",
-    accentSoft: "rgba(167, 139, 250, 0.18)",
-    accentGradient: ["#A78BFA", "#7C3AED"],
+    text: "#F5F7FA",
+    textMuted: "#A6B1C0",
+    border: "#253142",
+    accent: "#75A7FF",
+    accentSoft: "rgba(117, 167, 255, 0.16)",
+    accentGradient: ["#2F74E8", "#2F74E8"],
     accentText: "#FFFFFF",
+    selected: "#2F74E8",
     verified: "#F2C14E",
-    like: "#FF4D8D",
-    repost: "#34D399",
-    danger: "#FF5A6A",
-    success: "#34D399",
-    overlay: "rgba(5, 3, 15, 0.55)",
+    like: "#FF5C7A",
+    repost: "#3DD68C",
+    danger: "#FF6B6B",
+    success: "#3DD68C",
+    overlay: "rgba(4, 8, 14, 0.6)",
     statusBar: "light",
   },
-  /**
-   * Dark: true dark mode — near-black, neutral graphite glass, violet only as an accent.
-   * Easier on the eyes at night and saves battery on OLED screens.
-   */
+  /** True black for OLED screens, with the same blue accent. */
   dark: {
     name: "dark",
     mode: "dark",
     bg: "#000000",
-    gradient: ["#0E0E13", "#060608", "#000000"],
-    orbA: "rgba(124, 58, 237, 0.10)",
-    orbB: "rgba(255, 255, 255, 0.025)",
-    bgElevated: "rgba(255,255,255,0.07)",
-    bgInput: "rgba(255,255,255,0.08)",
-    card: "rgba(255,255,255,0.045)",
-    cardBorder: "rgba(255,255,255,0.085)",
-    cardPressed: "rgba(255,255,255,0.085)",
-    glassTint: "rgba(16, 16, 20, 0.72)",
-    glassBorder: "rgba(255,255,255,0.12)",
-    glassHighlight: "rgba(255,255,255,0.22)",
+    gradient: ["#000000", "#000000", "#000000"],
+    orbA: "transparent",
+    orbB: "transparent",
+    bgElevated: "#11161E",
+    bgInput: "#11161E",
+    card: "#0E1218",
+    cardBorder: "#222A36",
+    cardPressed: "#161C25",
+    glassTint: "rgba(10, 12, 16, 0.8)",
+    glassBorder: "rgba(255,255,255,0.10)",
+    glassHighlight: "rgba(255,255,255,0.14)",
     blurTint: "systemChromeMaterialDark",
-    text: "#F2F2F5",
-    textMuted: "rgba(235, 235, 245, 0.6)",
-    border: "rgba(255,255,255,0.08)",
-    accent: "#A78BFA",
-    accentSoft: "rgba(167, 139, 250, 0.14)",
-    accentGradient: ["#A78BFA", "#7C3AED"],
+    text: "#F5F7FA",
+    textMuted: "#9AA4B2",
+    border: "#1E2530",
+    accent: "#75A7FF",
+    accentSoft: "rgba(117, 167, 255, 0.14)",
+    accentGradient: ["#2F74E8", "#2F74E8"],
     accentText: "#FFFFFF",
+    selected: "#2F74E8",
     verified: "#F2C14E",
-    like: "#FF4D8D",
-    repost: "#34D399",
-    danger: "#FF5A6A",
-    success: "#34D399",
-    overlay: "rgba(0, 0, 0, 0.62)",
+    like: "#FF5C7A",
+    repost: "#3DD68C",
+    danger: "#FF6B6B",
+    success: "#3DD68C",
+    overlay: "rgba(0, 0, 0, 0.65)",
     statusBar: "light",
   },
-  /** Daylight: soft lavender glass. */
+  /** Daylight: soft porcelain with deep navy text. */
   light: {
     name: "light",
     mode: "light",
-    bg: "#F6F4FC",
-    gradient: ["#E4D7FF", "#EFE9FF", "#F7F6FC"],
-    orbA: "rgba(167, 139, 250, 0.35)",
-    orbB: "rgba(99, 102, 241, 0.18)",
-    bgElevated: "rgba(255,255,255,0.75)",
-    bgInput: "rgba(255,255,255,0.72)",
-    card: "rgba(255,255,255,0.68)",
-    cardBorder: "rgba(255,255,255,0.95)",
-    cardPressed: "rgba(255,255,255,0.9)",
-    glassTint: "rgba(255,255,255,0.62)",
-    glassBorder: "rgba(255,255,255,0.9)",
-    glassHighlight: "rgba(255,255,255,1)",
+    bg: "#FAFAF8",
+    gradient: ["#FAFAF8", "#FAFAF8", "#FAFAF8"],
+    orbA: "transparent",
+    orbB: "transparent",
+    bgElevated: "#FFFFFF",
+    bgInput: "#F0F2F5",
+    card: "#FFFFFF",
+    cardBorder: "#E8EBEF",
+    cardPressed: "#F1F3F6",
+    glassTint: "rgba(250, 250, 248, 0.82)",
+    glassBorder: "rgba(20, 32, 51, 0.08)",
+    glassHighlight: "rgba(255,255,255,0.9)",
     blurTint: "systemChromeMaterialLight",
-    text: "#17122A",
-    textMuted: "#6A6385",
-    border: "rgba(23, 18, 42, 0.08)",
-    accent: "#7C3AED",
-    accentSoft: "rgba(124, 58, 237, 0.12)",
-    accentGradient: ["#8B5CF6", "#6D28D9"],
+    text: "#142033",
+    textMuted: "#697586",
+    border: "#E8EBEF",
+    accent: "#2459A6",
+    accentSoft: "rgba(36, 89, 166, 0.10)",
+    accentGradient: ["#2459A6", "#2459A6"],
     accentText: "#FFFFFF",
-    verified: "#D99A0B",
-    like: "#E11D74",
-    repost: "#059669",
-    danger: "#DC2626",
-    success: "#059669",
-    overlay: "rgba(23, 18, 42, 0.35)",
+    selected: "#142033",
+    verified: "#C98A0B",
+    like: "#E0245E",
+    repost: "#17945A",
+    danger: "#D92D20",
+    success: "#17945A",
+    overlay: "rgba(20, 32, 51, 0.35)",
     statusBar: "dark",
   },
 };
@@ -169,8 +174,9 @@ export function useTheme(): Theme {
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 /** Concentric radii: inner radius = outer radius − padding, as in Apple's Liquid Glass guidance. */
-export const radius = { sm: 10, md: 16, lg: 22, xl: 28, pill: 999 } as const;
-export const font = { xs: 12, sm: 13.5, md: 15, lg: 17, xl: 20, xxl: 24, title: 32 } as const;
+export const radius = { sm: 10, md: 14, lg: 18, xl: 24, pill: 999 } as const;
+/** Type scale (San Francisco on iOS). Body and post titles are both md (16); titles differ by weight only. */
+export const font = { xs: 13, sm: 14, md: 16, lg: 17, xl: 20, xxl: 24, title: 30 } as const;
 
 /** Height reserved at the bottom of tab screens for the floating glass tab bar. */
 export const TAB_BAR_HEIGHT = 64;

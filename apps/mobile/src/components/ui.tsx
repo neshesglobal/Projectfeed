@@ -212,9 +212,7 @@ export function Button({
       accessibilityState={{ disabled: !!off, busy: !!loading }}
       style={({ pressed }) => [
         { borderRadius: radius.pill, opacity: off ? 0.45 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] },
-        variant === "primary" && !off
-          ? { shadowColor: t.accentGradient[1], shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 6 }
-          : null,
+        null,
         style,
       ]}
     >
