@@ -159,9 +159,11 @@ const discoverRoutes: FastifyPluginAsync = async (app) => {
       sql`NOT p.limited`,
       sql`NOT p.sensitive`,
     ];
+    // Float maths throughout: `extract(epoch …)` is numeric, and numeric power() made this 6× slower at scale.
+    // exp(-ln2 · age / 48 h) is the same two-day half-life.
     let order = sql`ln(2 + p.like_count + 2 * p.bookmark_count + 3 * p.reply_count)
-                    * power(0.5, extract(epoch FROM now() - p.created_at) / 172800)
-                    * (0.6 + 0.008 * u.trust_score) DESC, p.id DESC`;
+                    * exp(-0.6931471805599453 * extract(epoch FROM now() - p.created_at)::float8 / 172800)
+                    * (0.6 + 0.008 * u.trust_score::float8) DESC, p.id DESC`;
     if (topic === "nearby") {
       const lat = num(req.query.lat, -90, 90);
       const lng = num(req.query.lng, -180, 180);

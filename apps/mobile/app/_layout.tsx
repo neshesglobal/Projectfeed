@@ -1,9 +1,9 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ApiError } from "../src/api/client";
@@ -21,6 +21,15 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
   const style = document.createElement("style");
   style.textContent = "input:focus, textarea:focus { outline: none; }";
   document.head.appendChild(style);
+}
+
+// On native, tell TanStack Query when the app is foregrounded so polling (refetchInterval) pauses in the
+// background and stale queries refresh on return. The web already uses the page's visibility.
+if (Platform.OS !== "web") {
+  focusManager.setEventListener((setFocused) => {
+    const sub = AppState.addEventListener("change", (state) => setFocused(state === "active"));
+    return () => sub.remove();
+  });
 }
 
 const queryClient = new QueryClient({

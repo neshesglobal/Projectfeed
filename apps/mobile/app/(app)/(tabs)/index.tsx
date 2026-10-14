@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { FlashListRef } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
-import { router, useNavigation } from "expo-router";
+import { router, useIsFocused, useNavigation } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import type { FeedItem, Page } from "@projectfeed/shared";
@@ -56,9 +56,10 @@ export default function Home() {
 
   // "New posts" pill: poll the Following timeline and compare with what is on screen.
   const newest = following.data?.pages[0]?.items[0]?.post.id;
+  const homeFocused = useIsFocused();
   const latest = useQuery({
     queryKey: ["feed", "latest-check"],
-    refetchInterval: 60_000,
+    refetchInterval: homeFocused ? 60_000 : false,
     queryFn: () => api<Page<FeedItem>>("/feed/following?limit=3"),
   });
   const latestId = latest.data?.items[0]?.post.id;

@@ -29,6 +29,7 @@ export async function setup(overrides: Partial<Config> = {}, opts: { scanner?: M
   await migrate(sql);
   const uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "pf-uploads-"));
   process.env.RATE_LIMIT_PER_MIN = "100000";
+  process.env.SHARED_CACHE_MS = "0"; // tests post and read back immediately
   process.env.AUTH_RATE_LIMIT_PER_MIN = "100000";
   const app = await buildApp({ ...config, databaseUrl: TEST_DB, uploadDir, ...overrides }, sql, { scanner: opts.scanner ?? new NoopScanner(), translator: opts.translator, geo: opts.geo });
   return {

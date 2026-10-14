@@ -49,6 +49,27 @@ type Row = Omit<Candidate, "score" | "affinity" | "followed" | "seen" | "authorN
   reason: string | null;
 };
 
+/** How long shared, viewer-independent results are reused (0 disables; tests set it to 0). */
+export const sharedCacheMs = () => Number(process.env.SHARED_CACHE_MS ?? 60_000);
+
+/**
+ * "Popular on Projectfeed" is the same for everyone (minus the viewer's own posts), and scoring every post from
+ * the last 48 hours is the most expensive For You source, so it is computed at most once a minute per server.
+ */
+let popularCache: { at: number; db: Db; rows: Row[] } | null = null;
+async function popularPosts(db: Db, since: string): Promise<Row[]> {
+  if (popularCache && popularCache.db === db && Date.now() - popularCache.at < sharedCacheMs()) return popularCache.rows;
+  const rows = await db<Row[]>`
+    SELECT p.id AS "postId", p.author_id AS "authorId", p.text, p.like_count AS likes, p.reply_count AS replies,
+           p.repost_count AS reposts, p.quote_count AS quotes, p.bookmark_count AS bookmarks, p.created_at AS "createdAt",
+           'Popular on Projectfeed' AS reason
+    FROM posts p
+    WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND p.id > ${since} AND NOT p.limited AND p.reply_to_id IS NULL
+    ORDER BY (p.like_count + 2 * p.repost_count + 4 * p.reply_count) DESC, p.id DESC LIMIT 101`;
+  popularCache = { at: Date.now(), db, rows };
+  return rows;
+}
+
 async function sources(db: Db, viewerId: string): Promise<Candidate[]> {
   const since = idAtTime(new Date(Date.now() - WEIGHTS.lookbackHours * 3600_000));
   const cols = () => db`p.id AS "postId", p.author_id AS "authorId", p.text, p.like_count AS likes, p.reply_count AS replies,
@@ -76,10 +97,7 @@ async function sources(db: Db, viewerId: string): Promise<Candidate[]> {
       FROM posts p JOIN users a ON a.id = p.author_id, users me
       WHERE me.id = ${viewerId} AND ${oon()} AND p.reply_to_id IS NULL AND a.sectors && me.sectors
       ORDER BY (p.like_count + 2 * p.repost_count + 4 * p.reply_count) DESC LIMIT 100`,
-    db<Row[]>`
-      SELECT ${cols()}, 'Popular on Projectfeed' AS reason FROM posts p
-      WHERE ${oon()} AND p.reply_to_id IS NULL
-      ORDER BY (p.like_count + 2 * p.repost_count + 4 * p.reply_count) DESC, p.id DESC LIMIT 100`,
+    popularPosts(db, since).then((rows) => rows.filter((r) => r.authorId !== viewerId).slice(0, 100)),
   ]);
 
   // Merge, keeping the first (most personal) source for each post.

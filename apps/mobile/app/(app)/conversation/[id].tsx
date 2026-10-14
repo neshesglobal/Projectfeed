@@ -2,11 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { formatRelativeTime, type Conversation, type Message } from "@projectfeed/shared";
+import { formatRelativeTime, type Conversation, type Message, type Page } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
 import { useMessages } from "../../../src/api/hooks";
 import { uploadWithProgress, waitUntilReady, type LocalAsset } from "../../../src/lib/upload";
@@ -90,13 +90,26 @@ export default function ConversationScreen() {
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<Message | null>(null);
 
-  // Poll for new messages while the chat is open (WebSocket delivery replaces this later).
-  useEffect(() => {
-    const h = setInterval(() => void messages.refetch(), 5000);
-    return () => clearInterval(h);
-  }, [messages]);
-
+  // Poll for new messages while the chat is on screen (WebSocket delivery replaces this later). The poll asks only
+  // for the newest message; the loaded pages are refetched only when it differs from what is shown.
+  const focused = useIsFocused();
   const latestId = messages.data?.pages[0]?.items[0]?.id;
+  const probe = useQuery({
+    queryKey: ["messages-probe", id],
+    enabled: !!messages.data,
+    refetchInterval: focused ? 5000 : false,
+    queryFn: () => api<Page<Message>>(`/conversations/${id}/messages?limit=1`),
+  });
+  const probedId = probe.data?.items[0]?.id;
+  const { refetch: refetchMessages } = messages;
+  const handledProbe = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    // Once per new probe result: a message we just sent can make the two differ until the next probe.
+    if (!probedId || probedId === latestId || handledProbe.current === probedId) return;
+    handledProbe.current = probedId;
+    void refetchMessages();
+  }, [probedId, latestId, refetchMessages]);
+
   useEffect(() => {
     if (!latestId) return;
     void api(`/conversations/${id}/read`, { method: "POST" }).then(() => {

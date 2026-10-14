@@ -1,3 +1,4 @@
+import { sharedCacheMs } from "../feed/mixer";
 import type { FastifyPluginAsync } from "fastify";
 import type { FeedItem, Trend } from "@projectfeed/shared";
 import { badRequest } from "../lib/errors";
@@ -29,6 +30,9 @@ export function parseQuery(q: string): ParsedQuery {
   out.terms = rest.join(" ");
   return out;
 }
+
+/** Most recent matches ranked for "Top" search. */
+const TOP_CANDIDATES = 1000;
 
 const searchRoutes: FastifyPluginAsync = async (app) => {
   const { sql, storage } = app.ctx;
@@ -96,12 +100,18 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
     if (mode === "top") {
       const offset = Number(req.query.cursor ?? 0);
       if (!Number.isInteger(offset) || offset < 0) throw badRequest("Invalid cursor");
-      // Top: engagement with a recency decay (days), restricted to the last 30 days.
+      // Top: engagement with a recency decay (days), restricted to the last 30 days. Ranks the most recent
+      // TOP_CANDIDATES matches rather than every match: a common word can match hundreds of thousands of posts,
+      // and scoring them all took ~230 ms at 400k posts (≈10 ms bounded).
       const rows = await sql<{ id: string }[]>`
-        SELECT p.id FROM posts p JOIN users u ON u.id = p.author_id
-        WHERE ${where} AND p.id > ${idAtTime(new Date(Date.now() - 30 * 86400_000))}
-        ORDER BY ln(2 + p.like_count + 2 * p.repost_count + 3 * p.reply_count)
-                 / (1 + extract(epoch FROM now() - p.created_at) / 86400) DESC, p.id DESC
+        SELECT c.id FROM (
+          SELECT p.id, p.like_count, p.repost_count, p.reply_count, p.created_at
+          FROM posts p JOIN users u ON u.id = p.author_id
+          WHERE ${where} AND p.id > ${idAtTime(new Date(Date.now() - 30 * 86400_000))}
+          ORDER BY p.id DESC LIMIT ${TOP_CANDIDATES}
+        ) c
+        ORDER BY ln(2 + c.like_count + 2 * c.repost_count + 3 * c.reply_count)
+                 / (1 + extract(epoch FROM now() - c.created_at)::float8 / 86400) DESC, c.id DESC
         OFFSET ${offset} LIMIT ${limit}`;
       ids = rows.map((r) => r.id);
       nextCursor = rows.length === limit ? String(offset + limit) : null;
@@ -127,7 +137,10 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
    * Trends: tags whose last-24h volume is well above their 7-day hourly baseline,
    * counted by distinct authors so one account cannot manufacture a trend.
    */
+  // Trends are the same for everyone, so they are computed at most once a minute per server.
+  let trendsCache: { at: number; value: { items: Trend[] } } | null = null;
   app.get<{ Querystring: { sector?: string } }>("/trends", async (): Promise<{ items: Trend[] }> => {
+    if (trendsCache && Date.now() - trendsCache.at < sharedCacheMs()) return trendsCache.value;
     const rows = await sql<{ tag: string; kind: "hashtag" | "cashtag"; authors: number; posts: number; baseline: number }[]>`
       WITH recent AS (
         SELECT pt.tag, pt.kind, count(DISTINCT pt.author_id)::int AS authors, count(*)::int AS posts
@@ -144,7 +157,7 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
       WHERE r.authors >= 2
       ORDER BY r.authors / (1 + coalesce(b.baseline, 0)) DESC, r.posts DESC
       LIMIT 20`;
-    return {
+    const value = {
       items: rows.map((r) => ({
         tag: r.tag,
         kind: r.kind,
@@ -152,6 +165,8 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
         context: r.authors > 3 * (r.baseline + 1) ? "Trending now" : "Trending",
       })),
     };
+    trendsCache = { at: Date.now(), value };
+    return value;
   });
 };
 

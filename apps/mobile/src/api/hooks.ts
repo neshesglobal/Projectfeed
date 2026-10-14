@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import { useIsFocused } from "expo-router";
 import { Platform } from "react-native";
 import type {
   Collection,
@@ -271,12 +272,15 @@ export function useTypeahead(q: string) {
 }
 
 // ───────────── Messages ─────────────
-export const useConversations = (tab: "inbox" | "requests") =>
-  useQuery({
+export function useConversations(tab: "inbox" | "requests") {
+  // Tabs stay mounted, so poll only while the inbox is actually on screen.
+  const focused = useIsFocused();
+  return useQuery({
     queryKey: ["conversations", tab],
-    refetchInterval: 15_000,
+    refetchInterval: focused ? 15_000 : false,
     queryFn: () => api<Page<Conversation>>(`/conversations${qs({ tab: tab === "requests" ? "requests" : undefined })}`),
   });
+}
 
 export const useMessages = (cid: string) => usePaged<Message>(["messages", cid], `/conversations/${cid}/messages`);
 

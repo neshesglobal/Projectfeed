@@ -1,4 +1,6 @@
+import zlib from "node:zlib";
 import Fastify, { type FastifyInstance, type preHandlerHookHandler } from "fastify";
+import compress from "@fastify/compress";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
@@ -106,6 +108,13 @@ export async function buildApp(
 
   // @fastify/cors only allows GET, HEAD and POST unless told otherwise; the web app also edits and deletes.
   await app.register(cors, { origin: true, methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] });
+  // Compress JSON responses (a 20-post feed page is ~15 KB raw, ~2 KB compressed): this matters most on mobile data.
+  // Images and video are already compressed formats and are skipped. Brotli at a low level keeps CPU cost small.
+  await app.register(compress, {
+    threshold: 1024,
+    encodings: ["br", "gzip"],
+    brotliOptions: { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } },
+  });
   await app.register(multipart, { limits: { fileSize: cfg.maxMediaBytes, files: 1 } });
   await app.register(rateLimit, {
     max: Number(process.env.RATE_LIMIT_PER_MIN ?? 600),
