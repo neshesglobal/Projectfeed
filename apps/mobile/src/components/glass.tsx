@@ -27,6 +27,7 @@ export function Glass({
   interactive,
   tint,
   intensity = 60,
+  native,
 }: {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -34,11 +35,17 @@ export function Glass({
   interactive?: boolean;
   tint?: string;
   intensity?: number;
+  /**
+   * Use Apple's native Liquid Glass on iOS 26+. Only for chrome over moving content (the tab bar): it is very
+   * clear and turns pale over bright content, so panels that carry text (sheets, toolbars, menus) use the
+   * themed frosted material below instead.
+   */
+  native?: boolean;
 }) {
   const t = useTheme();
   const shape: ViewStyle = { borderRadius: radius, overflow: "hidden" };
 
-  if (NATIVE_GLASS) {
+  if (NATIVE_GLASS && native) {
     return (
       // Follow the app's theme, not the phone's: otherwise a dark app on a phone set to light shows pale glass.
       <GlassView glassEffectStyle="regular" isInteractive={interactive} tintColor={tint} colorScheme={t.mode} style={[shape, style]}>
@@ -76,7 +83,8 @@ export function Glass({
   return (
     <View style={[shape, { zIndex: 0 }, style]}>
       <BlurView intensity={intensity} tint={t.blurTint} style={[StyleSheet.absoluteFill, { zIndex: -1 }]} />
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: -1, backgroundColor: tint ?? t.glassTint, opacity: 0.55 }]} />
+      {/* A strong theme tint over the blur keeps text readable whatever is behind the panel. */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: -1, backgroundColor: tint ?? t.glassTint }]} />
       {children}
       {edge}
     </View>

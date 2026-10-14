@@ -10,7 +10,7 @@ import { useNotifications } from "../../../src/api/hooks";
 import { TabHeader } from "../../../src/components/HomeHeader";
 import { PostCard } from "../../../src/components/PostCard";
 import { Card } from "../../../src/components/glass";
-import { Avatar, EmptyState, ErrorView, IconButton, Loading, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { Avatar, EmptyState, ErrorView, Loading, Screen, Text, TopTabs } from "../../../src/components/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
 
@@ -79,7 +79,7 @@ export default function Notifications() {
 
   return (
     <Screen>
-      <TabHeader title="Activity" right={<IconButton name="settings-outline" glass size={18} label="Settings" onPress={() => router.push("/settings")} />}>
+      <TabHeader title="Activity">
         <TopTabs
           tabs={[
             { key: "all", label: "All" },

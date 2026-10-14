@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import type { ComponentProps, ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -76,19 +76,29 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 
 export function Avatar({ user, size = 40, onPress }: { user: Pick<UserSummary, "avatarUrl" | "displayName" | "handle"> | null; size?: number; onPress?: () => void }) {
   const t = useTheme();
+  // If the photo can't load (missing file, offline), fall back to the initial rather than an empty circle.
+  const [failed, setFailed] = useState<string | null>(null);
   const initial = (user?.displayName || user?.handle || "?").charAt(0).toUpperCase();
   // Fixed size: inside a column that stretches its children, an unsized wrapper would grow to full width.
   const ring: ViewStyle = { width: size, height: size, borderRadius: size / 2, borderWidth: StyleSheet.hairlineWidth, borderColor: t.cardBorder, overflow: "hidden", alignSelf: "flex-start" };
-  const content = user?.avatarUrl ? (
-    <View style={ring}>
-      <Image source={{ uri: user.avatarUrl }} style={{ width: "100%", height: "100%", backgroundColor: t.bgInput }} contentFit="cover" transition={150} accessibilityIgnoresInvertColors />
+  const showPhoto = !!user?.avatarUrl && failed !== user.avatarUrl;
+  const content = showPhoto ? (
+    <View style={[ring, { backgroundColor: t.bgInput }]}>
+      <Image
+        source={{ uri: user!.avatarUrl! }}
+        style={{ width: "100%", height: "100%" }}
+        contentFit="cover"
+        transition={150}
+        accessibilityIgnoresInvertColors
+        onError={() => setFailed(user!.avatarUrl)}
+      />
     </View>
   ) : (
-    <LinearGradient colors={t.accentGradient} style={[ring, { alignItems: "center", justifyContent: "center" }]}>
-      <Text weight="700" style={{ fontSize: size * 0.42, color: "#fff" }}>
+    <View style={[ring, { alignItems: "center", justifyContent: "center", backgroundColor: t.selected }]}>
+      <Text weight="700" allowFontScaling={false} style={{ fontSize: size * 0.42, color: "#fff" }}>
         {initial}
       </Text>
-    </LinearGradient>
+    </View>
   );
   if (!onPress) return content;
   return (

@@ -35,6 +35,7 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
   return (
     <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: Math.max(insets.bottom, 12), alignItems: "center" }}>
       <Glass
+        native
         radius={radius.pill}
         tint={onReels ? "rgba(10,8,20,0.55)" : undefined}
         style={{
