@@ -77,13 +77,14 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 export function Avatar({ user, size = 40, onPress }: { user: Pick<UserSummary, "avatarUrl" | "displayName" | "handle"> | null; size?: number; onPress?: () => void }) {
   const t = useTheme();
   const initial = (user?.displayName || user?.handle || "?").charAt(0).toUpperCase();
-  const ring: ViewStyle = { borderRadius: size / 2, borderWidth: 1.5, borderColor: t.glassBorder, overflow: "hidden" };
+  // Fixed size: inside a column that stretches its children, an unsized wrapper would grow to full width.
+  const ring: ViewStyle = { width: size, height: size, borderRadius: size / 2, borderWidth: StyleSheet.hairlineWidth, borderColor: t.cardBorder, overflow: "hidden", alignSelf: "flex-start" };
   const content = user?.avatarUrl ? (
     <View style={ring}>
-      <Image source={{ uri: user.avatarUrl }} style={{ width: size, height: size, backgroundColor: t.bgInput }} contentFit="cover" transition={150} accessibilityIgnoresInvertColors />
+      <Image source={{ uri: user.avatarUrl }} style={{ width: "100%", height: "100%", backgroundColor: t.bgInput }} contentFit="cover" transition={150} accessibilityIgnoresInvertColors />
     </View>
   ) : (
-    <LinearGradient colors={t.accentGradient} style={[ring, { width: size, height: size, alignItems: "center", justifyContent: "center" }]}>
+    <LinearGradient colors={t.accentGradient} style={[ring, { alignItems: "center", justifyContent: "center" }]}>
       <Text weight="700" style={{ fontSize: size * 0.42, color: "#fff" }}>
         {initial}
       </Text>
@@ -91,7 +92,7 @@ export function Avatar({ user, size = 40, onPress }: { user: Pick<UserSummary, "
   );
   if (!onPress) return content;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${user?.displayName ?? "User"}'s profile`} hitSlop={4}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${user?.displayName ?? "User"}'s profile`} hitSlop={4} style={{ width: size, height: size, alignSelf: "flex-start" }}>
       {content}
     </Pressable>
   );

@@ -40,7 +40,8 @@ export function Glass({
 
   if (NATIVE_GLASS) {
     return (
-      <GlassView glassEffectStyle="regular" isInteractive={interactive} tintColor={tint} style={[shape, style]}>
+      // Follow the app's theme, not the phone's: otherwise a dark app on a phone set to light shows pale glass.
+      <GlassView glassEffectStyle="regular" isInteractive={interactive} tintColor={tint} colorScheme={t.mode} style={[shape, style]}>
         {children}
       </GlassView>
     );

@@ -1,13 +1,12 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { formatCount } from "@projectfeed/shared";
 import { api } from "../../src/api/client";
-import { Glass } from "../../src/components/glass";
-import { Avatar, Divider, NameLine, Text, type IconName } from "../../src/components/ui";
+import { Icon, type IconSymbol } from "../../src/components/Icon";
+import { Avatar, NameLine, Text } from "../../src/components/ui";
 import { useAuth } from "../../src/store/auth";
-import { radius, space, useTheme } from "../../src/theme";
+import { space, useTheme } from "../../src/theme";
 
 /** X's left drawer: profile summary and navigation to secondary screens. */
 export default function AccountMenu() {
@@ -21,16 +20,21 @@ export default function AccountMenu() {
     router.back();
     setTimeout(() => router.push(path as never), 10);
   };
-  const Item = ({ icon, label, path, onPress }: { icon: IconName; label: string; path?: string; onPress?: () => void }) => (
+  const Item = ({ icon, label, path, onPress, danger }: { icon: IconSymbol; label: string; path?: string; onPress?: () => void; danger?: boolean }) => (
     <Pressable
       onPress={onPress ?? (() => go(path!))}
       accessibilityRole="button"
-      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.lg, paddingVertical: space.md, opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.lg,
+        minHeight: 52,
+        paddingHorizontal: space.xl,
+        backgroundColor: pressed ? t.cardPressed : "transparent",
+      })}
     >
-      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center" }}>
-        <Ionicons name={icon} size={19} color={t.accent} />
-      </View>
-      <Text weight="700" size="lg">
+      <Icon name={icon} size={22} color={danger ? t.danger : t.text} />
+      <Text weight="600" size="lg" style={{ color: danger ? t.danger : t.text }}>
         {label}
       </Text>
     </Pressable>
@@ -38,45 +42,71 @@ export default function AccountMenu() {
 
   return (
     <View style={{ flex: 1, flexDirection: "row", backgroundColor: t.overlay }}>
-      <Glass
-        radius={radius.xl}
-        style={{ width: "82%", maxWidth: 340, marginLeft: space.sm, marginTop: insets.top + space.sm, marginBottom: insets.bottom + space.sm, paddingTop: space.xl, paddingHorizontal: space.xl, paddingBottom: space.lg }}
+      {/* Solid panel from the left edge (a drawer, not floating glass), so text always has full contrast. */}
+      <View
+        style={{
+          width: "82%",
+          maxWidth: 320,
+          backgroundColor: t.mode === "dark" ? t.bgElevated : t.bg,
+          borderRightWidth: StyleSheet.hairlineWidth,
+          borderRightColor: t.cardBorder,
+          paddingTop: insets.top + space.lg,
+          paddingBottom: insets.bottom + space.sm,
+        }}
+        accessibilityViewIsModal
       >
-        <ScrollView contentContainerStyle={{ gap: space.xs }}>
-          <Avatar user={me} size={44} onPress={() => go(`/user/${me.handle}`)} />
-          <View style={{ marginTop: space.sm }}>
-            <NameLine user={me} size="lg" />
-            <Text muted>@{me.handle}</Text>
+        <ScrollView contentContainerStyle={{ paddingBottom: space.lg }}>
+          <View style={{ paddingHorizontal: space.xl, gap: space.md, paddingBottom: space.lg }}>
+            <Avatar user={me} size={48} onPress={() => go(`/user/${me.handle}`)} />
+            <View>
+              <NameLine user={me} size="lg" />
+              <Text muted size="sm">
+                @{me.handle}
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: space.lg }}>
+              <Text size="sm">
+                <Text size="sm" weight="700">
+                  {formatCount(me.followingCount)}
+                </Text>{" "}
+                <Text size="sm" muted>
+                  Following
+                </Text>
+              </Text>
+              <Text size="sm">
+                <Text size="sm" weight="700">
+                  {formatCount(me.followersCount)}
+                </Text>{" "}
+                <Text size="sm" muted>
+                  Followers
+                </Text>
+              </Text>
+            </View>
           </View>
-          <View style={{ flexDirection: "row", gap: space.lg, marginVertical: space.md }}>
-            <Text>
-              <Text weight="700">{formatCount(me.followingCount)}</Text> <Text muted>Following</Text>
-            </Text>
-            <Text>
-              <Text weight="700">{formatCount(me.followersCount)}</Text> <Text muted>Followers</Text>
-            </Text>
-          </View>
-          <Item icon="person-outline" label="Profile" path={`/user/${me.handle}`} />
-          <Item icon="bookmark-outline" label="Bookmarks" path="/bookmarks" />
-          <Item icon="folder-open-outline" label="Collections" path="/collections" />
-          <Item icon="list-outline" label="Lists" path="/lists" />
-          <Item icon="people-outline" label="Follow requests" path="/follow-requests" />
-          <Item icon="person-add-outline" label="Connect" path="/connect" />
-          <Divider style={{ marginVertical: space.md }} />
-          <Item icon="shield-checkmark-outline" label="Verification" path="/settings/verification" />
-          <Item icon="settings-outline" label="Settings & privacy" path="/settings" />
-          <Item
-            icon="log-out-outline"
-            label="Log out"
-            onPress={async () => {
-              const rt = useAuth.getState().refreshToken;
-              router.back();
-              await api("/auth/logout", { method: "POST", body: { refreshToken: rt }, auth: false }).catch(() => {});
-              await signOut();
-            }}
-          />
+          <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.border, marginBottom: space.sm }} />
+          <Item icon="person" label="Profile" path={`/user/${me.handle}`} />
+          <Item icon="bookmark" label="Bookmarks" path="/bookmarks" />
+          <Item icon="folder" label="Collections" path="/collections" />
+          <Item icon="list.bullet" label="Lists" path="/lists" />
+          <Item icon="person.2" label="Follow requests" path="/follow-requests" />
+          <Item icon="person.badge.plus" label="Connect" path="/connect" />
+          <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.border, marginVertical: space.sm, marginHorizontal: space.xl }} />
+          <Item icon="checkmark.shield" label="Verification" path="/settings/verification" />
+          <Item icon="gearshape" label="Settings & privacy" path="/settings" />
         </ScrollView>
-      </Glass>
+        <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: t.border }} />
+        <Item
+          icon="rectangle.portrait.and.arrow.right"
+          label="Log out"
+          danger
+          onPress={async () => {
+            const rt = useAuth.getState().refreshToken;
+            router.back();
+            await api("/auth/logout", { method: "POST", body: { refreshToken: rt }, auth: false }).catch(() => {});
+            await signOut();
+          }}
+        />
+      </View>
       <Pressable style={{ flex: 1 }} onPress={() => router.back()} accessibilityLabel="Close menu" />
     </View>
   );

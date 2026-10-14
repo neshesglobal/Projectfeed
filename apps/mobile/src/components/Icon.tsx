@@ -39,6 +39,14 @@ const FALLBACK = {
   pin: "pin",
   sparkles: "sparkles",
   "chart.bar": "stats-chart-outline",
+  person: "person-outline",
+  folder: "folder-open-outline",
+  "list.bullet": "list-outline",
+  "person.2": "people-outline",
+  "person.badge.plus": "person-add-outline",
+  "checkmark.shield": "shield-checkmark-outline",
+  gearshape: "settings-outline",
+  "rectangle.portrait.and.arrow.right": "log-out-outline",
 } satisfies Record<string, IonName>;
 
 export type IconSymbol = keyof typeof FALLBACK;
