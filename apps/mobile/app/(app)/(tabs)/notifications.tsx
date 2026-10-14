@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, router } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, RefreshControl, View } from "react-native";
 import type { NotificationItem } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
@@ -10,8 +10,9 @@ import { useNotifications } from "../../../src/api/hooks";
 import { TabHeader } from "../../../src/components/HomeHeader";
 import { PostCard } from "../../../src/components/PostCard";
 import { Card } from "../../../src/components/glass";
-import { Avatar, EmptyState, ErrorView, Loading, Screen, Text, TopTabs } from "../../../src/components/ui";
+import { Avatar, Button, EmptyState, ErrorView, Loading, Screen, Text, TopTabs } from "../../../src/components/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { enablePush, pushPrompt, usePush } from "../../../src/lib/push";
 import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
 
 const VERBS: Record<string, string> = {
@@ -58,6 +59,40 @@ function GroupedNotification({ n }: { n: NotificationItem }) {
       </View>
     </Card>
     </View>
+  );
+}
+
+/** Asks for notification permission in context, before the one-time system prompt. */
+function PushPrompt() {
+  const t = useTheme();
+  const permission = usePush((s) => s.permission);
+  const [dismissed, setDismissed] = useState(true);
+  useEffect(() => {
+    void pushPrompt.dismissed().then(setDismissed);
+  }, []);
+  if (permission !== "undetermined" || dismissed) return null;
+  const close = () => {
+    setDismissed(true);
+    void pushPrompt.dismiss();
+  };
+  return (
+    <Card style={{ margin: space.lg, padding: space.lg, gap: space.md }}>
+      <View style={{ flexDirection: "row", gap: space.md, alignItems: "flex-start" }}>
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="notifications" size={18} color={t.accent} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text weight="700">Don't miss a reply</Text>
+          <Text muted size="sm">
+            Get notified when people reply, mention you, follow you or message you. You can choose which in Settings.
+          </Text>
+        </View>
+        <Pressable onPress={close} hitSlop={10} accessibilityLabel="Not now">
+          <Ionicons name="close" size={18} color={t.textMuted} />
+        </Pressable>
+      </View>
+      <Button title="Turn on notifications" onPress={() => void enablePush().then(close)} />
+    </Card>
   );
 }
 
@@ -116,6 +151,7 @@ export default function Notifications() {
             />
           )
         }
+        ListHeaderComponent={<PushPrompt />}
         ListFooterComponent={q.isFetchingNextPage ? <Loading /> : null}
       />
     </Screen>

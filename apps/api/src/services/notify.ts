@@ -12,12 +12,17 @@ export async function notify(
 ): Promise<void> {
   if (n.recipientId === n.actorId) return;
   await db`
-    INSERT INTO notifications (id, user_id, type, actor_id, post_id)
-    SELECT ${newId()}, ${n.recipientId}, ${n.type}, ${n.actorId}, ${n.postId ?? null}
-    WHERE NOT EXISTS (SELECT 1 FROM blocks WHERE blocker_id = ${n.recipientId} AND blocked_id = ${n.actorId})
-      AND NOT EXISTS (SELECT 1 FROM mutes WHERE muter_id = ${n.recipientId} AND muted_id = ${n.actorId})
-    ON CONFLICT (user_id, type, actor_id, post_id) DO NOTHING`;
-  // Push delivery (APNs/FCM via Expo) hooks in here once device tokens are registered.
+    WITH n AS (
+      INSERT INTO notifications (id, user_id, type, actor_id, post_id)
+      SELECT ${newId()}, ${n.recipientId}, ${n.type}, ${n.actorId}, ${n.postId ?? null}
+      WHERE NOT EXISTS (SELECT 1 FROM blocks WHERE blocker_id = ${n.recipientId} AND blocked_id = ${n.actorId})
+        AND NOT EXISTS (SELECT 1 FROM mutes WHERE muter_id = ${n.recipientId} AND muted_id = ${n.actorId})
+      ON CONFLICT (user_id, type, actor_id, post_id) DO NOTHING
+      RETURNING id, user_id
+    )
+    -- Queue a push only for people with a device registered (see services/push.ts).
+    INSERT INTO push_outbox (user_id, notification_id)
+    SELECT user_id, id FROM n WHERE EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = n.user_id)`;
 }
 
 export async function unnotify(

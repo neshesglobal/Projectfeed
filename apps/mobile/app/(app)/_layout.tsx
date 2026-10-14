@@ -1,10 +1,12 @@
 import { Stack } from "expo-router";
+import { usePushNotifications } from "../../src/lib/push";
 import { useTheme } from "../../src/theme";
 
 export const unstable_settings = { initialRouteName: "(tabs)" };
 
 export default function AppLayout() {
   const t = useTheme();
+  usePushNotifications();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
       <Stack.Screen name="(tabs)" />

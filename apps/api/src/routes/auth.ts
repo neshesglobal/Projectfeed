@@ -64,8 +64,10 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/logout", async (req, reply) => {
-    const body = req.body as { refreshToken?: string } | undefined;
+    const body = req.body as { refreshToken?: string; pushToken?: string } | undefined;
     if (body?.refreshToken) await tokens.revokeRefresh(sql, body.refreshToken);
+    // This device stops receiving the account's notifications.
+    if (typeof body?.pushToken === "string") await sql`DELETE FROM push_tokens WHERE token = ${body.pushToken}`;
     reply.status(204);
   });
 };

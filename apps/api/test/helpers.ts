@@ -9,6 +9,7 @@ import { newId } from "../src/lib/ids";
 import type { StaffRole } from "../src/lib/staff";
 import { NoopScanner, type MediaScanner } from "../src/services/screening";
 import type { Translator } from "../src/services/translate";
+import { RecordingPushSender } from "../src/services/push";
 import type { GeoIpProvider } from "../src/services/location";
 import { config, type Config } from "../src/config";
 import { createDb, migrate, type Sql } from "../src/db";
@@ -23,7 +24,7 @@ export interface TestEnv {
 }
 
 /** Fresh schema per test file, so files are independent. */
-export async function setup(overrides: Partial<Config> = {}, opts: { scanner?: MediaScanner; translator?: Translator | null; geo?: GeoIpProvider } = {}): Promise<TestEnv> {
+export async function setup(overrides: Partial<Config> = {}, opts: { scanner?: MediaScanner; translator?: Translator | null; geo?: GeoIpProvider; push?: RecordingPushSender } = {}): Promise<TestEnv> {
   const sql = createDb(TEST_DB);
   await sql.unsafe("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   await migrate(sql);
@@ -31,7 +32,9 @@ export async function setup(overrides: Partial<Config> = {}, opts: { scanner?: M
   process.env.RATE_LIMIT_PER_MIN = "100000";
   process.env.SHARED_CACHE_MS = "0"; // tests post and read back immediately
   process.env.AUTH_RATE_LIMIT_PER_MIN = "100000";
-  const app = await buildApp({ ...config, databaseUrl: TEST_DB, uploadDir, ...overrides }, sql, { scanner: opts.scanner ?? new NoopScanner(), translator: opts.translator, geo: opts.geo });
+  const app = await buildApp({ ...config, databaseUrl: TEST_DB, uploadDir, ...overrides }, sql, { scanner: opts.scanner ?? new NoopScanner(), translator: opts.translator, geo: opts.geo,
+    // Push never polls in tests: they call app.ctx.push.flush() and read what the recording sender kept.
+    push: { sender: opts.push ?? new RecordingPushSender(), pollMs: 0, settleMs: 0 } });
   return {
     app,
     sql,

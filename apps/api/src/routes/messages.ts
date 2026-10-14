@@ -204,6 +204,11 @@ const messageRoutes: FastifyPluginAsync = async (app) => {
         await tx`INSERT INTO message_media (message_id, media_id, position) VALUES (${id}, ${mid}, ${i})`;
       }
       await tx`UPDATE conversations SET updated_at = now() WHERE id = ${cid}`;
+      // Queue a push for each other member with a device registered (see services/push.ts).
+      await tx`INSERT INTO push_outbox (user_id, message_id)
+               SELECT cm.user_id, ${id} FROM conversation_members cm
+               WHERE cm.conversation_id = ${cid} AND cm.user_id <> ${me.id} AND cm.status <> 'left'
+                 AND EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = cm.user_id)`;
       // Replying to a request accepts it; your own messages count as read.
       await tx`UPDATE conversation_members SET status = 'accepted', last_read_id = ${id}
                WHERE conversation_id = ${cid} AND user_id = ${me.id}`;

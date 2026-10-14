@@ -42,6 +42,7 @@ export default function Settings() {
         <Row first icon="person-outline" title="Your account" body="Password, sessions, download your data, delete account" path="/settings/account" />
         <Row icon="pulse-outline" title="Account status" body={standingBody} path="/settings/standing" badge={!!standing && (standing.unread > 0 || standing.status !== "active")} />
         <Row icon="shield-checkmark-outline" title="Verification and badges" body="Identity, business and creator badges, your team" path="/settings/verification" />
+        <Row icon="notifications-outline" title="Notifications" body="Push notifications for replies, mentions, follows and messages" path="/settings/notifications" />
         <Row icon="lock-closed-outline" title="Privacy and safety" body="Protected posts, blocked and muted accounts" path="/settings/privacy" />
         <Row icon="volume-mute-outline" title="Muted words" body="Hide posts containing words, #hashtags or $cashtags" path="/settings/muted-words" />
         <Row icon="people-outline" title="Community Notes" body="Rate notes that add context to posts" path="/notes" />

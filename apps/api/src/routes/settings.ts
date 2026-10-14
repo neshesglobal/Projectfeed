@@ -66,6 +66,8 @@ const settingsRoutes: FastifyPluginAsync = async (app) => {
   app.post("/me/sessions/revoke-all", async (req) => {
     const me = requireUser(req);
     await tokens.revokeAll(sql, me.id);
+    // Signed-out devices stop receiving notifications too.
+    await sql`DELETE FROM push_tokens WHERE user_id = ${me.id}`;
     return { ok: true };
   });
 
@@ -121,6 +123,7 @@ const settingsRoutes: FastifyPluginAsync = async (app) => {
       await tx`DELETE FROM follow_requests WHERE requester_id = ${me.id} OR target_id = ${me.id}`;
       await tx`DELETE FROM lists WHERE owner_id = ${me.id}`;
       await tx`DELETE FROM refresh_tokens WHERE user_id = ${me.id}`;
+      await tx`DELETE FROM push_tokens WHERE user_id = ${me.id}`;
       // Free the handle and email for reuse; keep the row so foreign keys and audit trails stay valid.
       await tx`
         UPDATE users SET status = 'deleted', deleted_at = now(),

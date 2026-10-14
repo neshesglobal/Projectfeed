@@ -35,6 +35,8 @@ import verificationRoutes from "./routes/verification";
 import notesRoutes from "./routes/notes";
 import discoverRoutes from "./routes/discover";
 import gifRoutes from "./routes/gifs";
+import pushRoutes from "./routes/push";
+import { createPushSender, PushWorker, type PushSender } from "./services/push";
 import { createGifProvider, type GifProvider } from "./services/gifs";
 import { NotesScheduler } from "./services/notes";
 
@@ -55,6 +57,8 @@ export interface AppCtx {
   /** Re-scores Community Notes shortly after new ratings. */
   notes: NotesScheduler;
   staffTokens: StaffTokens;
+  /** Sends queued push notifications. */
+  push: PushWorker;
   /** preHandler for every write endpoint (auth + future KYC gate). */
   requireVerified: preHandlerHookHandler;
 }
@@ -66,15 +70,23 @@ declare module "fastify" {
 }
 
 /** Writes a suspended (read-only) account may still make: appeal, acknowledge notices, sign out, telemetry. */
-const SUSPENDED_WRITES = [/^\/v1\/me\/appeals$/, /^\/v1\/me\/moderation-notices\/read$/, /^\/v1\/auth\/logout$/, /^\/v1\/events$/];
+const SUSPENDED_WRITES = [/^\/v1\/me\/push-tokens$/, /^\/v1\/me\/appeals$/, /^\/v1\/me\/moderation-notices\/read$/, /^\/v1\/auth\/logout$/, /^\/v1\/events$/];
 /** Frozen accounts (under compliance review) may only sign out. */
-const FROZEN_WRITES = [/^\/v1\/auth\/logout$/, /^\/v1\/events$/];
+const FROZEN_WRITES = [/^\/v1\/me\/push-tokens$/, /^\/v1\/auth\/logout$/, /^\/v1\/events$/];
 const allowed = (list: RegExp[], url: string) => list.some((r) => r.test(url.split("?")[0]!));
 
 export async function buildApp(
   cfg: Config,
   sql: Sql,
-  opts: { logger?: boolean; scanner?: MediaScanner; translator?: Translator | null; geo?: GeoIpProvider; gifs?: GifProvider | null } = {},
+  opts: {
+    logger?: boolean;
+    scanner?: MediaScanner;
+    translator?: Translator | null;
+    geo?: GeoIpProvider;
+    gifs?: GifProvider | null;
+    /** null switches push off; tests pass a RecordingPushSender and call ctx.push.flush() themselves. */
+    push?: { sender: PushSender | null; pollMs?: number; settleMs?: number };
+  } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? false,
@@ -99,10 +111,13 @@ export async function buildApp(
     translator: opts.translator === undefined ? createTranslator(cfg.isProd) : opts.translator,
     gifs: opts.gifs === undefined ? createGifProvider(cfg.isProd, storage) : opts.gifs,
     staffTokens: new StaffTokens(cfg),
+    push: new PushWorker(sql, opts.push ? opts.push.sender : createPushSender(), opts.push),
     requireVerified: makeRequireVerified(cfg) as preHandlerHookHandler,
   };
   app.decorate("ctx", ctx);
   await ctx.video.recover();
+  ctx.push.start();
+  app.addHook("onClose", async () => ctx.push.stop());
   app.decorateRequest("user", null);
   app.decorateRequest("staff", null);
 
@@ -205,6 +220,7 @@ export async function buildApp(
   await app.register(notesRoutes, { prefix: "/v1" });
   await app.register(discoverRoutes, { prefix: "/v1" });
   await app.register(gifRoutes, { prefix: "/v1" });
+  await app.register(pushRoutes, { prefix: "/v1" });
   await app.register(adminRoutes, { prefix: "/admin/v1" });
 
   return app;

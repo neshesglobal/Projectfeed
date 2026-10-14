@@ -41,6 +41,12 @@
         {
           "locationWhenInUsePermission": "Projectfeed uses your location to show places near you and to tag where a note or review was taken. Your location is never shown on your profile."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2459A6"
+        }
       ]
     ],
     "experiments": {
