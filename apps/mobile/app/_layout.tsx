@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ApiError } from "../src/api/client";
@@ -13,6 +14,14 @@ import { startEventLoop } from "../src/lib/events";
 import { useAuth } from "../src/store/auth";
 import { usePrefs } from "../src/store/prefs";
 import { useTheme } from "../src/theme";
+
+// Web only: browsers draw a focus outline round text fields, which the iOS and Android apps never show.
+// The fields already show focus with the text cursor, so match the native look.
+if (Platform.OS === "web" && typeof document !== "undefined") {
+  const style = document.createElement("style");
+  style.textContent = "input:focus, textarea:focus { outline: none; }";
+  document.head.appendChild(style);
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
