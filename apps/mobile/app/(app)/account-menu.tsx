@@ -48,6 +48,10 @@ export default function AccountMenu() {
           width: "82%",
           maxWidth: 320,
           backgroundColor: t.mode === "dark" ? t.bgElevated : t.bg,
+          // Rounded on the open side, close to the iPhone's own screen-corner curve.
+          borderTopRightRadius: 32,
+          borderBottomRightRadius: 32,
+          overflow: "hidden",
           borderRightWidth: StyleSheet.hairlineWidth,
           borderRightColor: t.cardBorder,
           paddingTop: insets.top + space.lg,
