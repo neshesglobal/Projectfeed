@@ -12,3 +12,4 @@ coverage/
 ios/
 android/
 apps/api/uploads-tmp/
+e2e/output/

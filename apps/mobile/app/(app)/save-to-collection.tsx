@@ -35,19 +35,19 @@ function Picker({ post }: { post: Post }) {
   const toggle = (c: Collection) =>
     action.mutate({ kind: inSet.has(c.id) ? "remove" : "add", id: c.id, post }, { onError: (e) => toast(errorMessage(e)) });
 
-  const create = () =>
-    action.mutate(
-      { kind: "create", name: name.trim(), isPrivate },
-      {
-        onSuccess: (c) => {
-          if (c && typeof c === "object" && "id" in c) action.mutate({ kind: "add", id: (c as Collection).id, post });
-          toast(`Saved to “${name.trim()}”`);
-          setCreating(false);
-          setName("");
-        },
-        onError: (e) => toast(errorMessage(e)),
-      },
-    );
+  // Create, then save into it: run one after the other. (Starting a second mutate from inside the first one's
+  // onSuccess on the same hook replaces its state mid-callback and throws.)
+  const create = async () => {
+    try {
+      const c = (await action.mutateAsync({ kind: "create", name: name.trim(), isPrivate })) as Collection;
+      await action.mutateAsync({ kind: "add", id: c.id, post });
+      toast(`Saved to “${name.trim()}”`);
+      setCreating(false);
+      setName("");
+    } catch (e) {
+      toast(errorMessage(e));
+    }
+  };
 
   const row = (key: string, c: Collection | undefined, label: string, sub: string, checked: boolean, onPress: () => void) => (
     <Pressable key={key} onPress={onPress} accessibilityRole="checkbox" accessibilityState={{ checked }} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
@@ -87,7 +87,7 @@ function Picker({ post }: { post: Post }) {
             <Text style={{ flex: 1 }}>Private (only you can see it)</Text>
             <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: t.accent }} />
           </View>
-          <Button title="Create and save" onPress={create} loading={action.isPending} disabled={!name.trim()} />
+          <Button title="Create and save" onPress={() => void create()} loading={action.isPending} disabled={!name.trim()} />
         </View>
       ) : (
         <Button variant="outline" icon="add" title="New collection" onPress={() => setCreating(true)} style={{ marginTop: space.md }} />
