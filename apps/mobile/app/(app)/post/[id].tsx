@@ -17,6 +17,7 @@ import { Avatar, Divider, ErrorView, Header, IconButton, Loading, NameLine, Scre
 import { postVisible } from "../../../src/lib/events";
 import { radius, space, useTheme } from "../../../src/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePullRefresh } from "../../../src/lib/usePullRefresh";
 
 function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
   if (n === 0) return null;
@@ -117,6 +118,7 @@ export default function PostScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const thread = useThread(id);
+  const pull = usePullRefresh(thread.refetch);
 
   // Further pages of replies beyond the first page bundled with the thread.
   const more = useInfiniteQuery({
@@ -180,7 +182,7 @@ export default function PostScreen() {
         }}
         ItemSeparatorComponent={null}
         onEndReached={() => more.hasNextPage && !more.isFetchingNextPage && void more.fetchNextPage()}
-        refreshControl={<RefreshControl refreshing={thread.isRefetching} onRefresh={() => void thread.refetch()} tintColor={t.accent} />}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListFooterComponent={<View style={{ height: 160 }}>{more.isFetchingNextPage ? <Loading /> : null}</View>}
       />
       {post.viewer.canReply ? (

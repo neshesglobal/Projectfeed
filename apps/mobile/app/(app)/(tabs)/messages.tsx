@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../src/store/auth";
 import { conversationTitle } from "../../../src/lib/format";
 import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
+import { usePullRefresh } from "../../../src/lib/usePullRefresh";
 
 function ConversationRow({ c }: { c: Conversation }) {
   const t = useTheme();
@@ -61,6 +62,7 @@ export default function Messages() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<"inbox" | "requests">("inbox");
   const q = useConversations(tab);
+  const pull = usePullRefresh(q.refetch);
   return (
     <Screen>
       <TabHeader title="Messages" right={<IconButton name="create-outline" glass size={18} label="New message" onPress={() => router.push("/new-message")} />}>
@@ -78,7 +80,7 @@ export default function Messages() {
         contentContainerStyle={{ paddingBottom: tabBarSpace(insets.bottom) + 24 }}
         keyExtractor={(c) => c.id}
         renderItem={({ item }) => <ConversationRow c={item} />}
-        refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={t.accent} />}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListEmptyComponent={
           q.isLoading ? (
             <Loading />

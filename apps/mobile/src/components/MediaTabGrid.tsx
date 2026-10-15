@@ -9,6 +9,7 @@ import type { FeedItem, Page } from "@projectfeed/shared";
 import { formatDuration } from "../lib/upload";
 import { useTheme } from "../theme";
 import { Loading, Text } from "./ui";
+import { usePullRefresh } from "../lib/usePullRefresh";
 
 /** Profile "Media" tab: a 3-column grid of photos and videos. */
 export function MediaTabGrid({
@@ -21,6 +22,7 @@ export function MediaTabGrid({
   empty: ReactNode;
 }) {
   const t = useTheme();
+  const pull = usePullRefresh(query.refetch);
   const { width } = useWindowDimensions();
   const size = Math.floor((Math.min(width, 700) - 4) / 3);
   const items = (query.data?.pages.flatMap((p) => p.items) ?? []).filter((i) => i.post.media.length > 0);
@@ -32,7 +34,7 @@ export function MediaTabGrid({
       keyExtractor={(i) => i.post.id}
       ListHeaderComponent={header}
       onEndReached={() => query.hasNextPage && !query.isFetchingNextPage && void query.fetchNextPage()}
-      refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={t.accent} />}
+      refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
       ListEmptyComponent={query.isLoading ? <Loading /> : <>{empty}</>}
       ListFooterComponent={query.isFetchingNextPage ? <Loading /> : <View style={{ height: 120 }} />}
       renderItem={({ item }) => {

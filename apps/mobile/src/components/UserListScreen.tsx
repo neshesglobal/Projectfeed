@@ -5,6 +5,7 @@ import type { Page, UserSummary } from "@projectfeed/shared";
 import { api, errorMessage } from "../api/client";
 import { useTheme } from "../theme";
 import { EmptyState, ErrorView, Header, Loading, Screen, UserRow } from "./ui";
+import { usePullRefresh } from "../lib/usePullRefresh";
 
 /** Shared screen for any list of accounts (followers, likes, blocked, requests…). */
 export function UserListScreen({
@@ -28,6 +29,7 @@ export function UserListScreen({
 }) {
   const t = useTheme();
   const q = useQuery({ queryKey, queryFn: () => api<Page<UserSummary>>(path) });
+  const pull = usePullRefresh(q.refetch);
   return (
     <Screen>
       {header ?? <Header title={title} subtitle={subtitle} />}
@@ -35,7 +37,7 @@ export function UserListScreen({
         data={q.data?.items ?? []}
         keyExtractor={(u) => u.id}
         renderItem={({ item }) => <UserRow user={item} right={right?.(item, () => void q.refetch())} />}
-        refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={t.accent} />}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListEmptyComponent={
           q.isLoading ? <Loading /> : q.isError ? <ErrorView message={errorMessage(q.error)} onRetry={() => void q.refetch()} /> : <EmptyState title={emptyTitle} body={emptyBody} />
         }

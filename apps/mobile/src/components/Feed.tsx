@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { SectionTitle } from "./glass";
 import { SuggestionCards } from "./SuggestionCards";
 import { EmptyState, ErrorView, Loading } from "./ui";
+import { usePullRefresh } from "../lib/usePullRefresh";
 
 type Row = { kind: "post"; item: FeedItem; key: string } | { kind: "suggestions"; users: UserSummary[]; key: string };
 
@@ -37,6 +38,7 @@ function Suggestions({ users }: { users: UserSummary[] }) {
 /** Infinite, pull-to-refresh post feed with impression/dwell logging. */
 export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, surface, header, empty, pinned, contentTopInset = 0 }, ref) {
   const t = useTheme();
+  const pull = usePullRefresh(query.refetch);
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     const seen = new Set<string>();
@@ -99,8 +101,8 @@ export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, 
       onViewableItemsChanged={onViewable}
       refreshControl={
         <RefreshControl
-          refreshing={query.isRefetching && !query.isFetchingNextPage}
-          onRefresh={() => void query.refetch()}
+          refreshing={pull.refreshing}
+          onRefresh={pull.onRefresh}
           tintColor={t.accent}
           colors={[t.accent]}
           progressViewOffset={contentTopInset}

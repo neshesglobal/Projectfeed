@@ -14,6 +14,7 @@ import { Avatar, Button, EmptyState, ErrorView, Loading, Screen, Text, TopTabs }
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { enablePush, pushPrompt, usePush } from "../../../src/lib/push";
 import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
+import { usePullRefresh } from "../../../src/lib/usePullRefresh";
 
 const VERBS: Record<string, string> = {
   like: "liked your post",
@@ -99,6 +100,7 @@ function PushPrompt() {
 export default function Notifications() {
   const [tab, setTab] = useState<"all" | "verified" | "mentions">("all");
   const q = useNotifications(tab);
+  const pull = usePullRefresh(q.refetch);
   const qc = useQueryClient();
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -138,7 +140,7 @@ export default function Notifications() {
           )
         }
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && void q.fetchNextPage()}
-        refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={t.accent} />}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListEmptyComponent={
           q.isLoading ? (
             <Loading />

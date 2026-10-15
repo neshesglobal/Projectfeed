@@ -19,6 +19,7 @@ import { Avatar, Button, Divider, ErrorView, Header, IconButton, Loading, Screen
 import { postVisible } from "../../../src/lib/events";
 import { useAuth } from "../../../src/store/auth";
 import { radius, space, useTheme } from "../../../src/theme";
+import { usePullRefresh } from "../../../src/lib/usePullRefresh";
 
 const MAX_WIDTH = 640;
 
@@ -156,6 +157,7 @@ export default function NoteScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const width = Math.min(screenWidth, MAX_WIDTH);
   const thread = useThread(id);
+  const pull = usePullRefresh(thread.refetch);
   const more = useInfiniteQuery({
     queryKey: ["replies", id],
     enabled: !!thread.data?.replies.nextCursor,
@@ -203,7 +205,7 @@ export default function NoteScreen() {
           </Text>
         }
         onEndReached={() => more.hasNextPage && !more.isFetchingNextPage && void more.fetchNextPage()}
-        refreshControl={<RefreshControl refreshing={thread.isRefetching} onRefresh={() => void thread.refetch()} tintColor={t.accent} />}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListFooterComponent={<View style={{ height: 140 }}>{more.isFetchingNextPage ? <Loading /> : null}</View>}
       />
       <ActionBar post={post} />

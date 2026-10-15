@@ -53,6 +53,28 @@ async function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
+/** Seconds until a JWT access token expires; Infinity if it can't be read. */
+function secondsLeft(token: string): number {
+  try {
+    const part = token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/");
+    const { exp } = JSON.parse(atob(part + "=".repeat((4 - (part.length % 4)) % 4))) as { exp?: number };
+    return typeof exp === "number" ? exp - Date.now() / 1000 : Infinity;
+  } catch {
+    return Infinity;
+  }
+}
+
+/**
+ * The access token, renewed first if it expires within a minute. Waiting for a 401 works for small requests,
+ * but a photo or video upload rejected that way is often reported by iOS as a dropped connection
+ * ("Can't reach Projectfeed") instead of a 401, so the app never got the chance to refresh and retry.
+ */
+export async function freshAccessToken(): Promise<string | null> {
+  const { accessToken, refreshToken } = useAuth.getState();
+  if (accessToken && refreshToken && secondsLeft(accessToken) < 60) await refreshSession();
+  return useAuth.getState().accessToken;
+}
+
 export interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
@@ -61,7 +83,7 @@ export interface RequestOptions {
 }
 
 export async function api<T>(path: string, opts: RequestOptions = {}, retried = false): Promise<T> {
-  const token = useAuth.getState().accessToken;
+  const token = opts.auth !== false ? await freshAccessToken() : null;
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers["content-type"] = "application/json";
   if (token && opts.auth !== false) headers.authorization = `Bearer ${token}`;

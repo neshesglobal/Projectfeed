@@ -7,6 +7,7 @@ import { errorMessage } from "../api/client";
 import { DiscoverCard } from "./DiscoverCard";
 import { EmptyState, ErrorView, Loading } from "./ui";
 import { space, useTheme } from "../theme";
+import { usePullRefresh } from "../lib/usePullRefresh";
 
 /** Two-column masonry grid of Discover notes (FlashList v2 masonry), infinite and pull-to-refresh. */
 export function NoteGrid({
@@ -21,6 +22,7 @@ export function NoteGrid({
   bottomInset?: number;
 }) {
   const t = useTheme();
+  const pull = usePullRefresh(query.refetch);
   const posts = useMemo(() => {
     const seen = new Set<string>();
     const out: Post[] = [];
@@ -50,7 +52,7 @@ export function NoteGrid({
       onEndReached={() => {
         if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
       }}
-      refreshControl={<RefreshControl refreshing={query.isRefetching && !query.isFetchingNextPage} onRefresh={() => void query.refetch()} tintColor={t.accent} colors={[t.accent]} />}
+      refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} colors={[t.accent]} />}
       ListEmptyComponent={
         query.isLoading ? (
           <Loading />

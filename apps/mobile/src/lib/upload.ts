@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import type { Media } from "@projectfeed/shared";
-import { API_URL, ApiError, api } from "../api/client";
+import { API_URL, ApiError, api, freshAccessToken } from "../api/client";
 import { useAuth } from "../store/auth";
 
 export interface LocalAsset {
@@ -50,7 +50,7 @@ export async function uploadWithProgress(asset: LocalAsset, onProgress: (fractio
       xhr.send(form);
     });
 
-  let res = await send(useAuth.getState().accessToken);
+  let res = await send(await freshAccessToken());
   if (res.status === 401) {
     // Access token expired mid-compose: any authenticated call refreshes it, then retry once.
     await api("/me").catch(() => {});
