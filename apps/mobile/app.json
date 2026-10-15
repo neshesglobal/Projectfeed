@@ -53,7 +53,11 @@
       "typedRoutes": false
     },
     "extra": {
-      "apiUrl": "http://localhost:4000"
-    }
+      "apiUrl": "http://localhost:4000",
+      "eas": {
+        "projectId": "760e0e49-76eb-4ff6-afc7-9596fdb5f18f"
+      }
+    },
+    "owner": "neshesglobal"
   }
 }
