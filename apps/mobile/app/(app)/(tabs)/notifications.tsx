@@ -15,6 +15,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { enablePush, pushPrompt, usePush } from "../../../src/lib/push";
 import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
 import { usePullRefresh } from "../../../src/lib/usePullRefresh";
+import { RowSkeleton } from "../../../src/components/motion";
+import Animated from "react-native-reanimated";
+import { enterItem, fadeOut } from "../../../src/theme/motion";
 
 const VERBS: Record<string, string> = {
   like: "liked your post",
@@ -77,6 +80,7 @@ function PushPrompt() {
     void pushPrompt.dismiss();
   };
   return (
+    <Animated.View entering={enterItem(0)} exiting={fadeOut()}>
     <Card style={{ margin: space.lg, padding: space.lg, gap: space.md }}>
       <View style={{ flexDirection: "row", gap: space.md, alignItems: "flex-start" }}>
         <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center" }}>
@@ -94,6 +98,7 @@ function PushPrompt() {
       </View>
       <Button title="Turn on notifications" onPress={() => void enablePush().then(close)} />
     </Card>
+    </Animated.View>
   );
 }
 
@@ -143,7 +148,7 @@ export default function Notifications() {
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListEmptyComponent={
           q.isLoading ? (
-            <Loading />
+            <RowSkeleton />
           ) : q.isError ? (
             <ErrorView message={errorMessage(q.error)} onRetry={() => void q.refetch()} />
           ) : (

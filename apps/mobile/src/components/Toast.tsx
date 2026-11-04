@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
-import { View } from "react-native";
+import Animated, { ReduceMotion, SlideInUp } from "react-native-reanimated";
+import { fadeOut } from "../theme/motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { create } from "zustand";
 import { radius, space, useTheme } from "../theme";
@@ -32,7 +33,11 @@ export function ToastHost() {
   }, [message, hide]);
   if (!message) return null;
   return (
-    <View
+    <Animated.View
+      key={message}
+      // Drops in from the status bar with a spring, fades away.
+      entering={SlideInUp.springify().damping(16).stiffness(220).reduceMotion(ReduceMotion.System)}
+      exiting={fadeOut()}
       pointerEvents="none"
       accessibilityLiveRegion="polite"
       style={{ position: "absolute", left: space.lg, right: space.lg, top: insets.top + space.sm, alignItems: "center" }}
@@ -41,6 +46,6 @@ export function ToastHost() {
         <Ionicons name="checkmark-circle" size={18} color={t.accent} />
         <Text weight="600">{message}</Text>
       </Glass>
-    </View>
+    </Animated.View>
   );
 }

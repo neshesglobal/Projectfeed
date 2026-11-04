@@ -18,6 +18,9 @@ import { useAuth } from "../../../src/store/auth";
 import { usePrefs } from "../../../src/store/prefs";
 import { useSignals } from "../../../src/store/signals";
 import { radius, space, useTheme } from "../../../src/theme";
+import Animated, { ReduceMotion, SlideInUp } from "react-native-reanimated";
+import { fadeOut } from "../../../src/theme/motion";
+import { PressScale } from "../../../src/components/motion";
 
 function ListFeed({ id }: { id: string }) {
   const q = useListTimeline(id);
@@ -122,14 +125,21 @@ export default function Home() {
           />
         )}
         {hasNew ? (
-          <Pressable onPress={scrollTopAndRefresh} accessibilityRole="button" accessibilityLabel="Show new posts" style={{ position: "absolute", top: space.sm, alignSelf: "center" }}>
+          <Animated.View
+            // Drops in from under the header with a spring; slides back up when dismissed.
+            entering={SlideInUp.springify().damping(15).stiffness(200).reduceMotion(ReduceMotion.System)}
+            exiting={fadeOut()}
+            style={{ position: "absolute", top: space.sm, alignSelf: "center" }}
+          >
+          <PressScale onPress={scrollTopAndRefresh} accessibilityRole="button" accessibilityLabel="Show new posts">
             <Glass radius={radius.pill} interactive style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: 10 }}>
               <Ionicons name="arrow-up" size={16} color={t.accent} />
               <Text weight="700" size="sm">
                 New posts
               </Text>
             </Glass>
-          </Pressable>
+          </PressScale>
+          </Animated.View>
         ) : null}
         <Fab icon="add" label="Compose post" onPress={() => router.push("/compose")} />
       </View>

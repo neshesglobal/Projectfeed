@@ -1,9 +1,12 @@
 import { BlurView } from "expo-blur";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
-import type { ReactNode } from "react";
-import { Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { useEffect, type ReactNode } from "react";
+import { Platform, Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewProps, type ViewStyle } from "react-native";
 import { radius as R, space, useTheme } from "../theme";
 import { Text } from "./ui";
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { duration } from "../theme/motion";
+import { PressScale } from "./motion";
 
 /** Native Liquid Glass is only available on iOS 26+. */
 const NATIVE_GLASS = Platform.OS === "ios" && (() => {
@@ -28,8 +31,10 @@ export function Glass({
   tint,
   intensity = 60,
   native,
+  onLayout,
 }: {
   children?: ReactNode;
+  onLayout?: ViewProps["onLayout"];
   style?: StyleProp<ViewStyle>;
   radius?: number;
   interactive?: boolean;
@@ -48,7 +53,7 @@ export function Glass({
   if (NATIVE_GLASS && native) {
     return (
       // Follow the app's theme, not the phone's: otherwise a dark app on a phone set to light shows pale glass.
-      <GlassView glassEffectStyle="regular" isInteractive={interactive} tintColor={tint} colorScheme={t.mode} style={[shape, style]}>
+      <GlassView glassEffectStyle="regular" isInteractive={interactive} tintColor={tint} colorScheme={t.mode} style={[shape, style]} onLayout={onLayout}>
         {children}
       </GlassView>
     );
@@ -71,7 +76,7 @@ export function Glass({
 
   if (Platform.OS === "android") {
     return (
-      <View style={[shape, { backgroundColor: tint ?? t.glassTint }, style]}>
+      <View style={[shape, { backgroundColor: tint ?? t.glassTint }, style]} onLayout={onLayout}>
         {children}
         {edge}
       </View>
@@ -81,7 +86,7 @@ export function Glass({
   // The material layers sit at zIndex −1 inside their own stacking context (zIndex 0 on the container):
   // on web, absolutely positioned layers would otherwise paint over non-positioned children such as inputs.
   return (
-    <View style={[shape, { zIndex: 0 }, style]}>
+    <View style={[shape, { zIndex: 0 }, style]} onLayout={onLayout}>
       <BlurView intensity={intensity} tint={t.blurTint} style={[StyleSheet.absoluteFill, { zIndex: -1 }]} />
       {/* A strong theme tint over the blur keeps text readable whatever is behind the panel. */}
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: -1, backgroundColor: tint ?? t.glassTint }]} />
@@ -118,38 +123,38 @@ export function Card({
   };
   if (!onPress) return <View style={[base, style]}>{children}</View>;
   return (
-    <Pressable {...rest} onPress={onPress} style={({ pressed }) => [base, pressed && { backgroundColor: t.cardPressed }, style]}>
+    <PressScale {...rest} onPress={onPress} to={0.98} style={[base, style]}>
       {children}
-    </Pressable>
+    </PressScale>
   );
 }
 
 /** Filter capsule. Selected: solid deep navy (day) or bright blue (night); unselected: hairline outline. */
 export function Chip({ label, active, onPress, icon }: { label: string; active?: boolean; onPress?: () => void; icon?: ReactNode }) {
   const t = useTheme();
+  // Selection fades between outline and fill rather than snapping, so the change reads as one movement.
+  const on = useSharedValue(active ? 1 : 0);
+  useEffect(() => {
+    on.value = withTiming(active ? 1 : 0, { duration: duration.fast });
+  }, [active, on]);
+  const fill = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(on.value, [0, 1], ["rgba(0,0,0,0)", t.selected]),
+    borderColor: interpolateColor(on.value, [0, 1], [t.cardBorder, t.selected]),
+  }));
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        minHeight: 36,
-        paddingHorizontal: 14,
-        borderRadius: R.pill,
-        backgroundColor: active ? t.selected : pressed ? t.cardPressed : "transparent",
-        borderWidth: StyleSheet.hairlineWidth * 2,
-        borderColor: active ? t.selected : t.cardBorder,
-        opacity: pressed ? 0.85 : 1,
-      })}
-    >
-      {icon}
-      <Text weight={active ? "600" : "500"} size="sm" style={{ color: active ? "#FFFFFF" : t.text }}>
-        {label}
-      </Text>
-    </Pressable>
+    <PressScale onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: !!active }} to={0.94} style={{ borderRadius: R.pill }}>
+      <Animated.View
+        style={[
+          { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 14, borderRadius: R.pill, borderWidth: StyleSheet.hairlineWidth * 2 },
+          fill,
+        ]}
+      >
+        {icon}
+        <Text weight={active ? "600" : "500"} size="sm" style={{ color: active ? "#FFFFFF" : t.text }}>
+          {label}
+        </Text>
+      </Animated.View>
+    </PressScale>
   );
 }
 

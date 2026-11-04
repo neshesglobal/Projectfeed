@@ -11,7 +11,9 @@ import {
   SEARCH_SINCE,
   type SearchFilters,
 } from "@projectfeed/shared";
+import Animated, { ReduceMotion, SlideInRight } from "react-native-reanimated";
 import { currentLocation } from "../lib/maps";
+import { duration, easing, fadeIn, fadeOut, sheetIn, sheetOut } from "../theme/motion";
 import { toast } from "./Toast";
 import { Button, Text } from "./ui";
 import { radius, space, useTheme } from "../theme";
@@ -86,8 +88,12 @@ export function SearchFiltersPanel({ value, onApply, onClose }: { value: SearchF
 
   return (
     <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, justifyContent: "flex-end" }}>
-      <Pressable style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: t.overlay }} onPress={onClose} accessibilityLabel="Close filters" />
-      <View
+      <Animated.View entering={fadeIn()} exiting={fadeOut()} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}>
+        <Pressable style={{ flex: 1, backgroundColor: t.overlay }} onPress={onClose} accessibilityLabel="Close filters" />
+      </Animated.View>
+      <Animated.View
+        entering={sheetIn()}
+        exiting={sheetOut()}
         style={{
           backgroundColor: t.bgElevated,
           borderTopLeftRadius: 28,
@@ -107,7 +113,7 @@ export function SearchFiltersPanel({ value, onApply, onClose }: { value: SearchF
         </View>
 
         {open ? (
-          <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg }}>
+          <Animated.ScrollView key={picker} entering={SlideInRight.duration(duration.base).easing(easing.enter).reduceMotion(ReduceMotion.System)} contentContainerStyle={{ paddingHorizontal: space.lg }}>
             {open.items.map((it) => (
               <Pressable
                 key={it.key}
@@ -125,7 +131,7 @@ export function SearchFiltersPanel({ value, onApply, onClose }: { value: SearchF
                 {it.key === open.current ? <Ionicons name="checkmark" size={22} color={t.accent} /> : null}
               </Pressable>
             ))}
-          </ScrollView>
+          </Animated.ScrollView>
         ) : (
           <>
             <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg }}>
@@ -149,7 +155,7 @@ export function SearchFiltersPanel({ value, onApply, onClose }: { value: SearchF
             </View>
           </>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }

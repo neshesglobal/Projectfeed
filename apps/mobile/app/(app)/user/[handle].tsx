@@ -4,7 +4,9 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Linking, Platform, Pressable, Share, View } from "react-native";
+import Animated, { ReduceMotion, ZoomIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KenBurns } from "../../../src/components/motion";
 import { BADGE_LABEL, formatCount, type FeedItem, type Post, type UserProfile } from "@projectfeed/shared";
 import { api, errorMessage } from "../../../src/api/client";
 import { useAbout, useFollow, useProfile, useRelationshipAction, useUserPosts } from "../../../src/api/hooks";
@@ -47,15 +49,20 @@ function ProfileHeader({ user, tab, setTab }: { user: UserProfile; tab: Tab; set
   return (
     <View>
       {user.bannerUrl ? (
-        <Image source={{ uri: user.bannerUrl }} style={{ height: 150, backgroundColor: t.bgInput }} contentFit="cover" />
+        <KenBurns height={150}>
+          <Image source={{ uri: user.bannerUrl }} style={{ height: 150, backgroundColor: t.bgInput }} contentFit="cover" transition={300} />
+        </KenBurns>
       ) : (
         <LinearGradient colors={[...t.accentGradient, "transparent"]} start={{ x: 0, y: 0 }} end={{ x: 0.6, y: 1 }} style={{ height: 150, opacity: 0.55 }} />
       )}
       <View style={{ paddingHorizontal: space.lg }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: -36 }}>
-          <View style={{ borderWidth: 3, borderColor: t.glassHighlight, borderRadius: 48, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}>
+          <Animated.View
+            entering={ZoomIn.springify().damping(12).stiffness(180).reduceMotion(ReduceMotion.System)}
+            style={{ borderWidth: 3, borderColor: t.glassHighlight, borderRadius: 48, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } }}
+          >
             <Avatar user={user} size={80} />
-          </View>
+          </Animated.View>
           <View style={{ flexDirection: "row", gap: space.sm, paddingBottom: space.xs }}>
             {!isMe && user.viewer && !user.viewer.blocking && !user.viewer.blockedBy ? (
               <IconButton

@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BADGE_LABEL, type Badge, type UserSummary } from "@projectfeed/shared";
 import { font, radius, space, useTheme } from "../theme";
 import { Backdrop, Chip, Glass } from "./glass";
+import { Float, PressScale, Reveal } from "./motion";
 
 export type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -216,16 +217,13 @@ export function Button({
   const inner: ViewStyle = { minHeight: height, paddingHorizontal: small ? space.lg : space.xl, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm, borderRadius: radius.pill };
 
   return (
-    <Pressable
+    <PressScale
       onPress={onPress}
       disabled={off}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!off, busy: !!loading }}
-      style={({ pressed }) => [
-        { borderRadius: radius.pill, opacity: off ? 0.45 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] },
-        null,
-        style,
-      ]}
+      to={0.96}
+      style={[{ borderRadius: radius.pill, opacity: off ? 0.45 : 1 }, style]}
     >
       {variant === "primary" ? (
         <LinearGradient colors={t.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={inner}>
@@ -240,7 +238,7 @@ export function Button({
           {label}
         </Glass>
       )}
-    </Pressable>
+    </PressScale>
   );
 }
 
@@ -258,13 +256,14 @@ export function IconButton({
   const t = useTheme();
   const icon = <Ionicons name={name} size={size} color={color ?? t.text} />;
   return (
-    <Pressable
+    <PressScale
       {...rest}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
-      style={({ pressed }) => [{ borderRadius: radius.pill, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] }, !glass ? { padding: 6 } : null, style]}
+      to={0.88}
+      style={[{ borderRadius: radius.pill }, !glass ? { padding: 6 } : null, style]}
     >
       {glass ? (
         <Glass radius={radius.pill} interactive style={{ width: size + 20, height: size + 20, alignItems: "center", justifyContent: "center" }}>
@@ -273,7 +272,7 @@ export function IconButton({
       ) : (
         icon
       )}
-    </Pressable>
+    </PressScale>
   );
 }
 
@@ -338,18 +337,30 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
   const t = useTheme();
   return (
     <View style={{ padding: space.xxl, gap: space.sm, alignItems: "center" }}>
-      <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: space.sm }}>
-        <Ionicons name="sparkles" size={28} color={t.accent} />
-      </View>
-      <Text weight="800" size="xl" style={{ textAlign: "center" }}>
-        {title}
-      </Text>
-      {body ? (
-        <Text muted style={{ textAlign: "center", lineHeight: 21 }}>
-          {body}
+      <Reveal>
+        <Float>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: space.sm }}>
+            <Ionicons name="sparkles" size={28} color={t.accent} />
+          </View>
+        </Float>
+      </Reveal>
+      <Reveal delay={80}>
+        <Text weight="800" size="xl" style={{ textAlign: "center" }}>
+          {title}
         </Text>
+      </Reveal>
+      {body ? (
+        <Reveal delay={140}>
+          <Text muted style={{ textAlign: "center", lineHeight: 21 }}>
+            {body}
+          </Text>
+        </Reveal>
       ) : null}
-      {action ? <View style={{ marginTop: space.lg }}>{action}</View> : null}
+      {action ? (
+        <Reveal delay={200}>
+          <View style={{ marginTop: space.lg }}>{action}</View>
+        </Reveal>
+      ) : null}
     </View>
   );
 }

@@ -5,6 +5,7 @@ import { api, errorMessage } from "../../src/api/client";
 import { Button, Header, Screen, Text, TextField } from "../../src/components/ui";
 import { useAuth } from "../../src/store/auth";
 import { space } from "../../src/theme";
+import { BrandBackdrop } from "../../src/components/BrandBackdrop";
 
 export default function Signup() {
   const signIn = useAuth((s) => s.signIn);
@@ -38,6 +39,7 @@ export default function Signup() {
 
   return (
     <Screen>
+      <BrandBackdrop />
       <Header title="Create your account" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: space.xl, gap: space.lg }} keyboardShouldPersistTaps="handled">

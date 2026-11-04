@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { View } from "react-native";
+import { BrandBackdrop } from "../../src/components/BrandBackdrop";
 import { Glass } from "../../src/components/glass";
 import { Logo } from "../../src/components/Logo";
+import { Float, Reveal } from "../../src/components/motion";
 import { Button, Screen, Text, type IconName } from "../../src/components/ui";
 import { radius, space, useTheme } from "../../src/theme";
 
@@ -12,43 +14,62 @@ const POINTS: { icon: IconName; title: string; body: string }[] = [
   { icon: "play-circle", title: "Reels from the field", body: "Short video from terminals, vaults and vessels." },
 ];
 
+/**
+ * First screen. The backdrop moves slowly (or plays the brand video); the content arrives in reading order:
+ * mark, promise, proof points one by one, then the two actions.
+ */
 export default function Welcome() {
   const t = useTheme();
   return (
     <Screen edges={["top", "bottom"]} style={{ paddingHorizontal: space.xl }}>
+      <BrandBackdrop />
       <View style={{ flex: 1, justifyContent: "center", gap: space.xl }}>
-        <Logo size={64} />
+        <Reveal>
+          <Float amplitude={4}>
+            <Logo size={64} />
+          </Float>
+        </Reveal>
         <View style={{ gap: space.sm }}>
-          <Text weight="800" style={{ fontSize: 38, lineHeight: 44, letterSpacing: -1 }}>
-            The trusted network for global trade.
-          </Text>
-          <Text muted size="lg" style={{ lineHeight: 24 }}>
-            Connect, share and discover with verified commodity professionals.
+          <Reveal delay={120}>
+            <Text weight="800" style={{ fontSize: 38, lineHeight: 44, letterSpacing: -1 }}>
+              The trusted network for global trade.
+            </Text>
+          </Reveal>
+          <Reveal delay={220}>
+            <Text muted size="lg" style={{ lineHeight: 24 }}>
+              Connect, share and discover with verified commodity professionals.
+            </Text>
+          </Reveal>
+        </View>
+        <Reveal delay={320}>
+          <Glass radius={radius.xl} style={{ padding: space.lg, gap: space.lg }}>
+            {POINTS.map((p, i) => (
+              <Reveal key={p.title} delay={420 + i * 110} rise={10}>
+                <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name={p.icon} size={20} color={t.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text weight="700">{p.title}</Text>
+                    <Text muted size="sm">
+                      {p.body}
+                    </Text>
+                  </View>
+                </View>
+              </Reveal>
+            ))}
+          </Glass>
+        </Reveal>
+      </View>
+      <Reveal delay={780}>
+        <View style={{ gap: space.md, paddingBottom: space.lg }}>
+          <Button title="Create account" onPress={() => router.push("/signup")} />
+          <Button title="I already have an account" variant="outline" onPress={() => router.push("/login")} />
+          <Text muted size="xs" style={{ textAlign: "center", marginTop: space.xs }}>
+            By continuing you agree to the Terms of Service and Privacy Policy.
           </Text>
         </View>
-        <Glass radius={radius.xl} style={{ padding: space.lg, gap: space.lg }}>
-          {POINTS.map((p) => (
-            <View key={p.title} style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.accentSoft, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name={p.icon} size={20} color={t.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text weight="700">{p.title}</Text>
-                <Text muted size="sm">
-                  {p.body}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </Glass>
-      </View>
-      <View style={{ gap: space.md, paddingBottom: space.lg }}>
-        <Button title="Create account" onPress={() => router.push("/signup")} />
-        <Button title="I already have an account" variant="outline" onPress={() => router.push("/login")} />
-        <Text muted size="xs" style={{ textAlign: "center", marginTop: space.xs }}>
-          By continuing you agree to the Terms of Service and Privacy Policy.
-        </Text>
-      </View>
+      </Reveal>
     </Screen>
   );
 }

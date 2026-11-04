@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 import { usePrefs } from "../store/prefs";
 import { radius, space } from "../theme";
+import { Aurora, Twinkle } from "./motion";
 import { Text, type IconName } from "./ui";
 
 const ACTIONS: { icon: IconName; colors: [string, string]; label: string; path: string }[] = [
@@ -25,8 +26,9 @@ export function WelcomeHero() {
       >
         {/* Specular sheen across the top edge. */}
         <LinearGradient colors={["rgba(255,255,255,0.22)", "transparent"]} style={[StyleSheet.absoluteFill, { height: 90 }]} />
+        <Aurora colors={["#7C3AED", "#2563EB", "#C026D3"]} style={{ opacity: 0.55 }} />
         {[[18, 30], [64, 70], [120, 22], [210, 48], [280, 18], [300, 96], [36, 140]].map(([x, y], i) => (
-          <View key={i} style={{ position: "absolute", left: x, top: y, width: 2.5, height: 2.5, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.7)" }} />
+          <Twinkle key={i} x={x!} y={y!} delay={i * 260} />
         ))}
         <Pressable onPress={dismiss} accessibilityRole="button" accessibilityLabel="Dismiss" hitSlop={10} style={{ position: "absolute", top: 14, right: 14, padding: 4 }}>
           <Ionicons name="close" size={20} color="rgba(255,255,255,0.85)" />

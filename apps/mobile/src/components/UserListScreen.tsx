@@ -6,6 +6,7 @@ import { api, errorMessage } from "../api/client";
 import { useTheme } from "../theme";
 import { EmptyState, ErrorView, Header, Loading, Screen, UserRow } from "./ui";
 import { usePullRefresh } from "../lib/usePullRefresh";
+import { RowSkeleton } from "./motion";
 
 /** Shared screen for any list of accounts (followers, likes, blocked, requests…). */
 export function UserListScreen({
@@ -39,7 +40,7 @@ export function UserListScreen({
         renderItem={({ item }) => <UserRow user={item} right={right?.(item, () => void q.refetch())} />}
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListEmptyComponent={
-          q.isLoading ? <Loading /> : q.isError ? <ErrorView message={errorMessage(q.error)} onRetry={() => void q.refetch()} /> : <EmptyState title={emptyTitle} body={emptyBody} />
+          q.isLoading ? <RowSkeleton /> : q.isError ? <ErrorView message={errorMessage(q.error)} onRetry={() => void q.refetch()} /> : <EmptyState title={emptyTitle} body={emptyBody} />
         }
       />
     </Screen>

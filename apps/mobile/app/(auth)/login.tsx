@@ -5,6 +5,7 @@ import { api, errorMessage } from "../../src/api/client";
 import { Button, Header, Screen, Text, TextField } from "../../src/components/ui";
 import { useAuth } from "../../src/store/auth";
 import { space } from "../../src/theme";
+import { BrandBackdrop } from "../../src/components/BrandBackdrop";
 
 export default function Login() {
   const signIn = useAuth((s) => s.signIn);
@@ -28,6 +29,7 @@ export default function Login() {
 
   return (
     <Screen>
+      <BrandBackdrop />
       <Header title="Log in" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={{ padding: space.xl, gap: space.lg, flex: 1 }}>

@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { memo, useRef } from "react";
-import { Alert, Animated, Platform, Pressable, Share, StyleSheet, View } from "react-native";
-import { useReducedMotion } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
+import { memo, useState } from "react";
+import { Alert, Platform, Pressable, Share, StyleSheet, View } from "react-native";
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import { spring } from "../theme/motion";
+import { Burst, PressScale, RollingNumber } from "./motion";
 import { formatCount, formatRelativeTime, type FeedItem, type Post, type UserSummary } from "@projectfeed/shared";
 import { api, errorMessage } from "../api/client";
 import {
@@ -55,7 +58,7 @@ function ActionButton({
   label,
   onPress,
   onLongPress,
-  bounce,
+  effect,
 }: {
   icon: IconSymbol;
   activeIcon?: IconSymbol;
@@ -65,38 +68,55 @@ function ActionButton({
   label: string;
   onPress?: () => void;
   onLongPress?: () => void;
-  /** Brief scale-up when the action turns on (likes); skipped with Reduce Motion. */
-  bounce?: boolean;
+  /**
+   * What happens when the action turns on: "burst" (like: the heart pops and throws sparks), "spin" (repost: the
+   * arrows turn once), "bounce" (bookmark: drops in). Every action sinks a little under the finger.
+   * Reduce Motion: colour change only.
+   */
+  effect?: "burst" | "spin" | "bounce";
 }) {
   const t = useTheme();
   const reduceMotion = useReducedMotion();
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+  const turn = useSharedValue(0);
+  const [burst, setBurst] = useState(0);
   const c = active ? color : t.textMuted;
+  const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }, { rotate: `${turn.value}deg` }] }));
   const press = () => {
-    if (bounce && !active && !reduceMotion) {
-      scale.setValue(0.8);
-      Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: Platform.OS !== "web" }).start();
+    if (!active && !reduceMotion && effect) {
+      if (Platform.OS !== "web") void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (effect === "burst") {
+        scale.value = withSequence(withTiming(0.6, { duration: 90 }), withSpring(1, spring.bouncy));
+        setBurst((n) => n + 1);
+      } else if (effect === "spin") {
+        turn.value = 0;
+        turn.value = withSpring(180, spring.snappy, () => {
+          turn.value = 0;
+        });
+      } else {
+        scale.value = withSequence(withTiming(1.25, { duration: 110 }), withSpring(1, spring.bouncy));
+      }
     }
     onPress?.();
   };
   return (
-    <Pressable
+    <PressScale
       onPress={press}
       onLongPress={onLongPress}
+      to={0.9}
       accessibilityRole="button"
       accessibilityLabel={`${label}${count ? `, ${formatCount(count)}` : ""}`}
       accessibilityState={{ selected: !!active }}
-      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 44, minHeight: 44, paddingRight: 4, opacity: pressed ? 0.55 : 1 })}
+      style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 44, minHeight: 44, paddingRight: 4 }}
     >
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <Icon name={active && activeIcon ? activeIcon : icon} size={20} color={c} />
-      </Animated.View>
-      {count !== undefined && count > 0 ? (
-        <Text size="sm" style={{ color: active ? color : t.textMuted, fontVariant: ["tabular-nums"] }}>
-          {formatCount(count)}
-        </Text>
-      ) : null}
-    </Pressable>
+      <View>
+        {effect === "burst" ? <Burst trigger={burst} color={color} /> : null}
+        <Animated.View style={iconStyle}>
+          <Icon name={active && activeIcon ? activeIcon : icon} size={20} color={c} />
+        </Animated.View>
+      </View>
+      {count !== undefined && count > 0 ? <RollingNumber value={count} format={formatCount} color={active ? color : t.textMuted} /> : null}
+    </PressScale>
   );
 }
 
@@ -123,7 +143,7 @@ export function PostActions({ post, large }: { post: Post; large?: boolean; comp
   return (
     <View style={{ flexDirection: "row", alignItems: "center", marginTop: large ? space.sm : 2 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg, flex: 1 }}>
-        <ActionButton icon="heart" activeIcon="heart.fill" label={post.viewer.liked ? "Unlike" : "Like"} count={post.counts.likes} color={t.like} active={post.viewer.liked} bounce onPress={() => like.mutate(post)} />
+        <ActionButton icon="heart" activeIcon="heart.fill" label={post.viewer.liked ? "Unlike" : "Like"} count={post.counts.likes} color={t.like} active={post.viewer.liked} effect="burst" onPress={() => like.mutate(post)} />
         <ActionButton
           icon="bubble"
           label="Comment"
@@ -135,10 +155,10 @@ export function PostActions({ post, large }: { post: Post; large?: boolean; comp
               : toast("Only some accounts can reply to this post")
           }
         />
-        <ActionButton icon="arrow.2.squarepath" label={post.viewer.reposted ? "Reposted" : "Repost"} count={post.counts.reposts + post.counts.quotes} color={t.repost} active={post.viewer.reposted} onPress={onRepost} />
+        <ActionButton icon="arrow.2.squarepath" label={post.viewer.reposted ? "Reposted" : "Repost"} count={post.counts.reposts + post.counts.quotes} color={t.repost} active={post.viewer.reposted} effect="spin" onPress={onRepost} />
         {large ? <ActionButton icon="chart.bar" label="Views" count={post.counts.views} color={t.textMuted} /> : null}
       </View>
-      <ActionButton icon="bookmark" activeIcon="bookmark.fill" label={post.viewer.bookmarked ? "Remove bookmark" : "Bookmark"} color={t.accent} active={post.viewer.bookmarked} onPress={() => bookmark.mutate(post)} />
+      <ActionButton icon="bookmark" activeIcon="bookmark.fill" label={post.viewer.bookmarked ? "Remove bookmark" : "Bookmark"} color={t.accent} active={post.viewer.bookmarked} effect="bounce" onPress={() => bookmark.mutate(post)} />
       <ActionButton icon="square.and.arrow.up" label="Share" color={t.textMuted} onPress={onShare} />
     </View>
   );

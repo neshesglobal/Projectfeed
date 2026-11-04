@@ -14,6 +14,7 @@ import { useAuth } from "../../../src/store/auth";
 import { conversationTitle } from "../../../src/lib/format";
 import { radius, space, tabBarSpace, useTheme } from "../../../src/theme";
 import { usePullRefresh } from "../../../src/lib/usePullRefresh";
+import { RowSkeleton } from "../../../src/components/motion";
 
 function ConversationRow({ c }: { c: Conversation }) {
   const t = useTheme();
@@ -83,7 +84,7 @@ export default function Messages() {
         refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={t.accent} />}
         ListEmptyComponent={
           q.isLoading ? (
-            <Loading />
+            <RowSkeleton />
           ) : tab === "inbox" ? (
             <EmptyState
               title="Welcome to your inbox!"

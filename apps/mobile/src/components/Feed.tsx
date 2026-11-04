@@ -13,6 +13,9 @@ import { SectionTitle } from "./glass";
 import { SuggestionCards } from "./SuggestionCards";
 import { EmptyState, ErrorView, Loading } from "./ui";
 import { usePullRefresh } from "../lib/usePullRefresh";
+import Animated from "react-native-reanimated";
+import { enterItem } from "../theme/motion";
+import { FeedSkeleton } from "./motion";
 
 type Row = { kind: "post"; item: FeedItem; key: string } | { kind: "suggestions"; users: UserSummary[]; key: string };
 
@@ -82,7 +85,10 @@ export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, 
     [surface, rows],
   );
 
+  // The list rises into place once, when real posts replace the shimmer placeholders. Rows are not animated one
+  // by one: FlashList recycles row views, and per-row enter animations misfire when rows are reused or re-sorted.
   return (
+    <Animated.View key={query.isLoading ? "loading" : "ready"} entering={query.isLoading ? undefined : enterItem(0)} style={{ flex: 1 }}>
     <FlashList
       ref={ref}
       data={rows}
@@ -110,7 +116,7 @@ export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, 
       }
       ListEmptyComponent={
         query.isLoading ? (
-          <Loading />
+          <FeedSkeleton />
         ) : query.isError ? (
           <ErrorView message={errorMessage(query.error)} onRetry={() => void query.refetch()} />
         ) : (
@@ -119,5 +125,6 @@ export const Feed = forwardRef<FlashListRef<Row>, Props>(function Feed({ query, 
       }
       ListFooterComponent={query.isFetchingNextPage ? <Loading /> : null}
     />
+    </Animated.View>
   );
 });
