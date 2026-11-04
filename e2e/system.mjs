@@ -161,6 +161,26 @@ await step("Search posts and people", async () => {
   expectTrue((await page.locator("text=Chennai >> visible=true").count()) > 0, "no Chennai results");
   await page.getByRole("tab", { name: "People" }).click(); await wait(1200);
 });
+await step("Tap a hashtag: results panel, filters, expand to full screen", async () => {
+  const [p] = await (await fetch(API + "/search/posts?q=%23chai&mode=latest")).json().then((r) => r.items);
+  expectTrue(!!p, "no #chai post in the seed");
+  await page.goto(APP + "/post/" + p.post.id); await wait(2500);
+  await page.getByText("#chai", { exact: true }).first().click(); await wait(2500);
+  expectTrue(page.url().includes("/tag-sheet"), "hashtag did not open the panel");
+  for (const tab of ["Top", "Latest", "People", "Videos", "Photos"]) await page.getByRole("tab", { name: tab }).last().waitFor();
+  const searches = [];
+  const listen = (r) => { if (r.url().includes("/search/posts")) searches.push(r.url()); };
+  page.on("request", listen);
+  await page.getByLabel("Search filters").last().click(); await wait(600);
+  await page.getByLabel(/^Date posted:/).click(); await page.getByText("Past month", { exact: true }).click(); await wait(300);
+  await page.getByLabel("Exclude replies").click();
+  await page.getByRole("button", { name: "Search" }).last().click(); await wait(2000);
+  page.off("request", listen);
+  expectTrue(searches.some((u) => u.includes("since=month") && u.includes("replies=exclude")), "filters not sent: " + searches.join(" "));
+  await page.getByLabel("Open full screen").last().click(); await wait(2000);
+  expectTrue(page.url().includes("/search-results") && decodeURIComponent(page.url()).includes('"since":"month"'), "expand lost the filters");
+  return "panel → filters (past month, no replies) → full screen";
+});
 
 // ── Discover ──
 await step("Discover grid, Nearby and Reviews", async () => {

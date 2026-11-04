@@ -6,3 +6,4 @@ export * from "./business";
 export * from "./maps";
 export * from "./regions";
 export * from "./push";
+export * from "./search";

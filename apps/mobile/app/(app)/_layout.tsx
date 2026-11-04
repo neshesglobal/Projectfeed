@@ -17,6 +17,19 @@ export default function AppLayout() {
       <Stack.Screen name="reply-settings" options={{ presentation: "transparentModal", animation: "fade" }} />
       <Stack.Screen name="gif-picker" options={{ presentation: "modal" }} />
       <Stack.Screen name="report" options={{ presentation: "modal" }} />
+      <Stack.Screen
+        name="tag-sheet"
+        options={{
+          // Native pull-up panel: about half, most, or all of the screen; swipe down to close.
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.5, 0.85, 1],
+          sheetInitialDetentIndex: 0,
+          sheetGrabberVisible: true,
+          sheetCornerRadius: 28,
+          sheetExpandsWhenScrolledToEdge: true,
+          contentStyle: { backgroundColor: t.bg },
+        }}
+      />
       <Stack.Screen name="new-message" options={{ presentation: "modal" }} />
       <Stack.Screen name="account-menu" options={{ presentation: "transparentModal", animation: "fade" }} />
       <Stack.Screen name="reels/[id]" options={{ animation: "slide_from_bottom", contentStyle: { backgroundColor: "#000" } }} />

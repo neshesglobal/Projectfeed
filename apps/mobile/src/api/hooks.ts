@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import * as Haptics from "expo-haptics";
 import { useIsFocused } from "expo-router";
 import { Platform } from "react-native";
+import { DEFAULT_SEARCH_FILTERS, searchFilterParams, type SearchFilters } from "@projectfeed/shared";
 import type {
   Collection,
   CommunityNote,
@@ -255,8 +256,10 @@ export function useUnreadCounts() {
 // ───────────── Search ─────────────
 export const useTrends = () => useQuery({ queryKey: ["trends"], queryFn: () => api<{ items: Trend[] }>("/trends") });
 
-export const useSearchPosts = (q: string, mode: string) =>
-  usePaged<FeedItem>(["search", "posts", q, mode], "/search/posts", { q, mode }, q.length > 0);
+export const useSearchPosts = (q: string, mode: string, filters: SearchFilters = DEFAULT_SEARCH_FILTERS) => {
+  const params = searchFilterParams(filters);
+  return usePaged<FeedItem>(["search", "posts", q, mode, params], "/search/posts", { q, mode, ...params }, q.length > 0);
+};
 
 export const useSearchUsers = (q: string) =>
   useQuery({ queryKey: ["search", "users", q], enabled: q.length > 0, queryFn: () => api<Page<UserSummary>>(`/search/users${qs({ q })}`) });

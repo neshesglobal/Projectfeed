@@ -18,8 +18,8 @@ export function RichText({ text, size = "md", postId, color, numberOfLines }: { 
     const label = text.slice(e.start, e.end);
     const onPress = () => {
       if (e.type === "mention") router.push(`/user/${e.value}`);
-      else if (e.type === "hashtag") router.push({ pathname: "/search-results", params: { q: `#${e.value}` } });
-      else if (e.type === "cashtag") router.push({ pathname: "/search-results", params: { q: `$${e.value}` } });
+      else if (e.type === "hashtag") router.push({ pathname: "/tag-sheet", params: { q: `#${e.value}` } });
+      else if (e.type === "cashtag") router.push({ pathname: "/tag-sheet", params: { q: `$${e.value}` } });
       else {
         if (postId) track({ type: "click_link", postId, surface: "post" });
         void Linking.openURL(e.value);

@@ -1,6 +1,6 @@
 import { sharedCacheMs } from "../feed/mixer";
 import type { FastifyPluginAsync } from "fastify";
-import type { FeedItem, Trend } from "@projectfeed/shared";
+import { isLanguageCode, NEAR_RADIUS_KM, SEARCH_SINCE, type FeedItem, type Trend } from "@projectfeed/shared";
 import { badRequest } from "../lib/errors";
 import { idAtTime } from "../lib/ids";
 import { orderedSummaries, visiblePosts } from "../services/hydrate";
@@ -29,6 +29,56 @@ export function parseQuery(q: string): ParsedQuery {
   }
   out.terms = rest.join(" ");
   return out;
+}
+
+interface SearchPostsQuery {
+  q?: string;
+  mode?: string;
+  cursor?: string;
+  limit?: string;
+  from?: string;
+  since?: string;
+  lang?: string;
+  minLikes?: string;
+  minReplies?: string;
+  minReposts?: string;
+  near?: string;
+  replies?: string;
+  muted?: string;
+}
+
+const count = (v: string | undefined, name: string) => {
+  if (v === undefined || v === "") return 0;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > 10_000_000) throw badRequest(`Invalid ${name}`);
+  return n;
+};
+
+/** The Filters panel's options (see SearchFilters in @projectfeed/shared). */
+export function parseFilters(qs: SearchPostsQuery) {
+  if (qs.from !== undefined && qs.from !== "anyone" && qs.from !== "following") throw badRequest("Invalid from");
+  const since = SEARCH_SINCE.find((s) => s.key === (qs.since ?? "all"));
+  if (!since) throw badRequest("Invalid since");
+  if (qs.lang !== undefined && !isLanguageCode(qs.lang)) throw badRequest("Invalid lang");
+  let near: { lat: number; lng: number } | null = null;
+  if (qs.near !== undefined) {
+    const [lat, lng] = qs.near.split(",").map(Number);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat!) > 90 || Math.abs(lng!) > 180) throw badRequest("Invalid near");
+    near = { lat: lat!, lng: lng! };
+  }
+  if (qs.replies !== undefined && qs.replies !== "include" && qs.replies !== "exclude") throw badRequest("Invalid replies");
+  if (qs.muted !== undefined && qs.muted !== "hide" && qs.muted !== "show") throw badRequest("Invalid muted");
+  return {
+    following: qs.from === "following",
+    sinceHours: since.hours,
+    lang: qs.lang ?? null,
+    minLikes: count(qs.minLikes, "minLikes"),
+    minReplies: count(qs.minReplies, "minReplies"),
+    minReposts: count(qs.minReposts, "minReposts"),
+    near,
+    excludeReplies: qs.replies === "exclude",
+    hideMuted: qs.muted !== "show",
+  };
 }
 
 /** Most recent matches ranked for "Top" search. */
@@ -73,22 +123,40 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  app.get<{ Querystring: { q?: string; mode?: string; cursor?: string; limit?: string } }>("/search/posts", async (req) => {
+  app.get<{ Querystring: SearchPostsQuery }>("/search/posts", async (req) => {
     const raw = (req.query.q ?? "").trim();
     if (!raw) return { items: [], nextCursor: null };
     if (raw.length > 200) throw badRequest("Query too long");
     const mode = req.query.mode ?? "top";
-    if (!["top", "latest", "media"].includes(mode)) throw badRequest("Invalid mode");
+    if (!["top", "latest", "media", "videos", "photos"].includes(mode)) throw badRequest("Invalid mode");
     const q = parseQuery(raw);
     if (mode === "media") q.mediaOnly = true;
     const limit = pageSize(req.query.limit);
     const viewer = req.user?.id ?? null;
+    const f = parseFilters(req.query);
+    if (f.following && !viewer) throw badRequest("Sign in to search people you follow");
 
     const conditions = [sql`p.deleted_at IS NULL`, sql`p.removed_at IS NULL`, sql`NOT p.limited`, sql`u.status = 'active'`];
     if (q.terms) conditions.push(sql`p.search @@ websearch_to_tsquery('simple', ${q.terms})`);
     if (q.from) conditions.push(sql`u.handle = ${q.from}`);
     if (q.mediaOnly) conditions.push(sql`EXISTS (SELECT 1 FROM post_media pm WHERE pm.post_id = p.id)`);
-    if (q.minLikes > 0) conditions.push(sql`p.like_count >= ${q.minLikes}`);
+    if (mode === "videos") conditions.push(sql`EXISTS (SELECT 1 FROM post_media pm JOIN media m ON m.id = pm.media_id WHERE pm.post_id = p.id AND m.type = 'video')`);
+    if (mode === "photos") conditions.push(sql`EXISTS (SELECT 1 FROM post_media pm JOIN media m ON m.id = pm.media_id WHERE pm.post_id = p.id AND m.type = 'image')`);
+    const minLikes = Math.max(q.minLikes, f.minLikes);
+    if (minLikes > 0) conditions.push(sql`p.like_count >= ${minLikes}`);
+    if (f.minReplies > 0) conditions.push(sql`p.reply_count >= ${f.minReplies}`);
+    if (f.minReposts > 0) conditions.push(sql`p.repost_count >= ${f.minReposts}`);
+    if (f.following) conditions.push(sql`(p.author_id = ${viewer} OR p.author_id IN (SELECT followee_id FROM follows WHERE follower_id = ${viewer}))`);
+    if (f.sinceHours) conditions.push(sql`p.id > ${idAtTime(new Date(Date.now() - f.sinceHours * 3600_000))}`);
+    if (f.lang) conditions.push(sql`p.lang = ${f.lang}`);
+    if (f.excludeReplies) conditions.push(sql`p.reply_to_id IS NULL`);
+    if (f.near) {
+      // Only posts tagged with a place (notes and reviews) have a location; a box of ±NEAR_RADIUS_KM is close enough.
+      const dLat = NEAR_RADIUS_KM / 111.32;
+      const dLng = NEAR_RADIUS_KM / (111.32 * Math.max(0.1, Math.cos((f.near.lat * Math.PI) / 180)));
+      conditions.push(sql`EXISTS (SELECT 1 FROM places pl WHERE pl.id = p.place_id
+        AND pl.lat BETWEEN ${f.near.lat - dLat} AND ${f.near.lat + dLat} AND pl.lng BETWEEN ${f.near.lng - dLng} AND ${f.near.lng + dLng})`);
+    }
     for (const t of q.tags) {
       conditions.push(sql`EXISTS (SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag = ${t.tag} AND pt.kind = ${t.kind})`);
     }
@@ -126,8 +194,9 @@ const searchRoutes: FastifyPluginAsync = async (app) => {
 
     let posts = await visiblePosts(hctx, viewer, ids);
     if (viewer) {
-      const f = await loadViewerFilters(sql, viewer);
-      posts = posts.filter((p) => !f.mutedUsers.has(p.author.id) && !containsMutedWord(p.text, f.mutedWords));
+      // Blocked accounts are already unavailable after hydration; muted ones can be shown on request.
+      const vf = await loadViewerFilters(sql, viewer);
+      posts = posts.filter((p) => (!f.hideMuted || !vf.mutedUsers.has(p.author.id)) && !containsMutedWord(p.text, vf.mutedWords));
     }
     const items: FeedItem[] = posts.map((post) => ({ post, repostedBy: null, reason: null }));
     return { items, nextCursor };

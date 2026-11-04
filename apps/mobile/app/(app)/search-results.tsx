@@ -1,61 +1,31 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { FlatList, View } from "react-native";
+import { DEFAULT_SEARCH_FILTERS, type SearchFilters } from "@projectfeed/shared";
+import { SEARCH_MODES, SearchResultsView, type SearchMode } from "../../src/components/SearchResultsView";
+import { IconButton, Screen } from "../../src/components/ui";
 import { useInsetsTop } from "../../src/lib/insets";
-import { useFollow, useSearchPosts, useSearchUsers } from "../../src/api/hooks";
-import { Feed } from "../../src/components/Feed";
-import { SearchBar } from "../../src/components/SearchBar";
-import { Button, EmptyState, IconButton, Loading, Screen, TopTabs, UserRow } from "../../src/components/ui";
-import { space, useTheme } from "../../src/theme";
 
-type Mode = "top" | "latest" | "people" | "media";
-
+/** Full-page search results (from the Search tab, or expanded from the hashtag panel). */
 export default function SearchResults() {
-  const params = useLocalSearchParams<{ q: string }>();
-  const t = useTheme();
+  const params = useLocalSearchParams<{ q: string; mode?: string; filters?: string }>();
   const top = useInsetsTop();
-  const [q, setQ] = useState(params.q ?? "");
-  const [submitted, setSubmitted] = useState(params.q ?? "");
-  const [mode, setMode] = useState<Mode>("top");
-  const posts = useSearchPosts(mode === "people" ? "" : submitted, mode === "people" ? "top" : mode);
-  const people = useSearchUsers(mode === "people" ? submitted : "");
-  const follow = useFollow();
-
   return (
     <Screen>
-      <View style={{ paddingTop: top }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.sm, paddingVertical: space.sm }}>
-          <IconButton name="chevron-back" glass size={20} label="Back" onPress={() => router.back()} />
-          <View style={{ flex: 1 }}>
-            <SearchBar value={q} onChange={setQ} onSubmit={() => setSubmitted(q.trim())} />
-          </View>
-        </View>
-        <TopTabs
-          tabs={[
-            { key: "top", label: "Top" },
-            { key: "latest", label: "Latest" },
-            { key: "people", label: "People" },
-            { key: "media", label: "Media" },
-          ]}
-          value={mode}
-          onChange={setMode}
-        />
-      </View>
-      {mode === "people" ? (
-        <FlatList
-          data={people.data?.items ?? []}
-          keyExtractor={(u) => u.id}
-          renderItem={({ item }) => <UserRow user={item} right={<Button title="Follow" small variant="secondary" onPress={() => follow.mutate({ user: item, follow: true })} />} />}
-          ListEmptyComponent={people.isLoading ? <Loading /> : <EmptyState title={`No results for “${submitted}”`} body="Try searching for something else." />}
-        />
-      ) : (
-        <Feed
-          key={`${submitted}:${mode}`}
-          query={posts}
-          surface="search"
-          empty={<EmptyState title={`No results for “${submitted}”`} body="Try searching for something else, or check your spelling." />}
-        />
-      )}
+      <SearchResultsView
+        initialQuery={params.q ?? ""}
+        initialMode={SEARCH_MODES.includes(params.mode as SearchMode) ? (params.mode as SearchMode) : "top"}
+        initialFilters={parseFilters(params.filters)}
+        topInset={top}
+        leading={() => <IconButton name="chevron-back" glass size={20} label="Back" onPress={() => router.back()} />}
+      />
     </Screen>
   );
+}
+
+function parseFilters(raw: string | undefined): SearchFilters {
+  if (!raw) return DEFAULT_SEARCH_FILTERS;
+  try {
+    return { ...DEFAULT_SEARCH_FILTERS, ...(JSON.parse(raw) as Partial<SearchFilters>) };
+  } catch {
+    return DEFAULT_SEARCH_FILTERS;
+  }
 }
